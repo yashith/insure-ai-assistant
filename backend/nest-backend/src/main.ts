@@ -11,6 +11,7 @@ async function bootstrap() {
       .setDescription('API documentation with executable Swagger UI')
       .setVersion('1.0')
       .addBearerAuth()  // For JWT
+      .addSecurityRequirements('bearer')
       .build();
   const  document = SwaggerModule.createDocument(app,config);
   SwaggerModule.setup("api-docs",app,document);
