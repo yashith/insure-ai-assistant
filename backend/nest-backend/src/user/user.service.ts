@@ -20,8 +20,6 @@ export class UserService implements OnModuleInit,OnModuleDestroy{
     private readonly filePath = 'users.json';
     async findOne(username: string): Promise<User | undefined> {
         this.loadUsers()
-        this.users.forEach((user => {
-            console.log(user.username)}));
         return this.users.find(user => user.username === username);
     }
 

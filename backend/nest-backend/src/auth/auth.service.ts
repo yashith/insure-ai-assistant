@@ -37,8 +37,6 @@ export class AuthService {
     ) {}
     async validateUser(username: string, password: string): Promise<User> {
         const user: User | undefined = await this.userService.findOne(username);
-        console.log('Validating user:', username);
-        console.log('Validating user:', user);
         if (!user) {
             throw new BadRequestException('User not found');
         }
@@ -51,11 +49,8 @@ export class AuthService {
     async login(user:LoginRequestDto): Promise<AccessToken> {
         const payload = { username: user.username, password: user.password};
         const existingUser = await this.userService.findOne(user.username);
-        console.log('Login attempt for user:', user.username);
         if (existingUser) {
-            console.log('Password hashed', existingUser.password);
             const inputPass = user.username+user.password;
-            console.log('Password plain', inputPass);
             const isMatch: boolean = bcrypt.compareSync(inputPass, existingUser.password);
 
             if(!isMatch){
