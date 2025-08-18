@@ -1,33 +1,11 @@
 import {BadRequestException, Injectable} from '@nestjs/common';
 import {JwtService} from "@nestjs/jwt";
-import {User, UserService} from "../user/user.service";
+import {UserService} from "../user/user.service";
 import * as bcrypt from 'bcrypt';
-import {ApiProperty} from "@nestjs/swagger";
-//TODO move these
-export type AccessToken = {
-    access_token: string;
-}
-
-export class  RegisterRequestDto {
-    @ApiProperty({
-        "example": "john_doe",
-    })
-    username: string;
-    @ApiProperty({
-        "example": "password123",
-    })
-    password: string;
-}
-export class LoginRequestDto {
-    @ApiProperty({
-        "example": "john_doe",
-    })
-    username: string;
-    @ApiProperty({
-        "example": "password123",
-    })
-    password:string;
-}
+import {User} from "../user/dto/user.dto";
+import {LoginRequestDto} from "./dto/login.req.dto";
+import {RegisterRequestDto} from "./dto/register.req.dto";
+import {AccessToken} from "./dto/auth.token.dto";
 
 @Injectable()
 export class AuthService {

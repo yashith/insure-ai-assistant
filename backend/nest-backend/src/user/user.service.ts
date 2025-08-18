@@ -2,13 +2,9 @@ import {Injectable, OnModuleDestroy, OnModuleInit} from '@nestjs/common';
 import * as console from "console";
 import * as fs from "fs";
 import {Role} from "../auth/common/constants/roles.const";
+import {User} from "./dto/user.dto";
 
-export type User = {
-    id: number;
-    username: string;
-    password: string;
-    role: string;
-}
+
 @Injectable()
 export class UserService implements OnModuleInit,OnModuleDestroy{
     private users: User[] = [

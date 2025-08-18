@@ -1,9 +1,10 @@
-import {Controller, Get, Post, Body, UseGuards} from '@nestjs/common';
+import {Controller, Get, Post, Body, UseGuards, Req} from '@nestjs/common';
 import { ChatService } from './chat.service';
 import {JwtAuthGuard} from "../auth/common/guards/jwt-auth.guard";
 import {RolesGuard} from "../auth/common/guards/roles.guard";
 import {Roles} from "../auth/common/decorators/role.decorator";
 import {Role} from "../auth/common/constants/roles.const";
+import {ChatDto} from "./dto/chat.dto";
 
 @UseGuards(JwtAuthGuard,RolesGuard)
 @Roles(Role.USER, Role.ADMIN)
@@ -16,8 +17,9 @@ export class ChatController {
     return this.chatService.getMessages();
   }
 
+  @UseGuards(JwtAuthGuard) // protect with auth
   @Post()
-  sendMessage(@Body() message: { sender: string; content: string }) {
-    return this.chatService.sendMessage(message);
+  async chat(@Body() chatDto: ChatDto, @Req() req) {
+    return this.chatService.sendMessage(chatDto.message, req.user);
   }
 }
