@@ -1,6 +1,7 @@
 import {Injectable, OnModuleDestroy, OnModuleInit} from '@nestjs/common';
 import * as console from "console";
 import * as fs from "fs";
+import {Role} from "../auth/common/constants/roles.const";
 
 export type User = {
     id: number;
@@ -28,7 +29,7 @@ export class UserService implements OnModuleInit,OnModuleDestroy{
             id: this.users.length + 1,
             username: newUser.username,
             password: newUser.password,
-            role: 'user' //TODO default check role
+            role: Role.USER //TODO default check role
         }
         this.users.push(user)
         this.saveUsers()

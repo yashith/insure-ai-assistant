@@ -47,7 +47,6 @@ export class AuthService {
         return user;
     }
     async login(user:LoginRequestDto): Promise<AccessToken> {
-        const payload = { username: user.username, password: user.password};
         const existingUser = await this.userService.findOne(user.username);
         if (existingUser) {
             const inputPass = user.username+user.password;
@@ -56,6 +55,7 @@ export class AuthService {
             if(!isMatch){
                 throw new BadRequestException('Password does not match');
             }
+            const payload = { username: user.username, password: user.password, role: existingUser.role };
             return { access_token: this.jwtService.sign(payload) };
         }
         else{
