@@ -1,10 +1,15 @@
 import json
 import logging
 from enum import Enum
-from typing import Dict, Any
+from typing import Dict, Any, Literal, TypedDict
 
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from langgraph.constants import START, END
+from langgraph.graph import StateGraph
+from langgraph.types import Command
+from psycopg import Connection, AsyncConnection
 
 from agents.api_interaction_agent import APIInteractionAgent
 from agents.api_agent_with_tools import ApiToolAgent
@@ -22,12 +27,21 @@ class QueryType(Enum):
 
 
 class OrchestratorAgentNew(BaseAgent):
-    def __init__(self, knowledge_agent: KnowledgeRetrievalAgent, api_agent: APIInteractionAgent, **kwargs):
+    def __init__(self,database_url,api_base_url, **kwargs):
         super().__init__(**kwargs)
 
-        self.knowledge_agent = knowledge_agent
-        self.api_agent = api_agent
         self.api_tool_agent = ApiToolAgent()  # Initialize the tool-based API agent
+
+        self.database_url = database_url
+        self.api_base_url = api_base_url
+        self.knowledge_agent = KnowledgeRetrievalAgent(database_url)
+        self.api_agent = APIInteractionAgent(api_base_url)
+
+        # Initialize agents
+        self.checkpointer = None
+        # Build the graph
+        self.graph = None
+        # self.graph = self._build_graph()
 
         self.routing_prompt = ChatPromptTemplate.from_messages([
             ("system", """You are an orchestrator for an insurance AI assistant.
@@ -59,6 +73,93 @@ class OrchestratorAgentNew(BaseAgent):
             Context: {context}"""),
             ("human", "{message}")
         ])
+
+    async def initialize(self):
+        graph_builder = StateGraph(AgentState)
+        connection_kwargs = {
+            "autocommit": True,
+            "prepare_threshold": 0,
+        }
+
+        db_connection = await AsyncConnection.connect(
+            self.database_url,
+            **connection_kwargs
+        )
+        checkpointer = AsyncPostgresSaver(db_connection)
+        # Setup checkpointer tables
+        await checkpointer.setup()
+
+        # graph_builder.add_node("ChatNode", ChatNode)
+        graph_builder.add_node("orchestrator", self._orchestrator_node)
+        graph_builder.add_node("knowledge_retrieval", self._knowledge_node)
+        graph_builder.add_node("api_interaction", self._api_node)
+
+        graph_builder.add_edge(START, "orchestrator")
+
+        graph_builder.add_conditional_edges(
+            "orchestrator",
+            self._route_decision,
+            {
+                "knowledge": "knowledge_retrieval",
+                "api": "api_interaction",
+                "end": END
+            }
+        )
+
+        graph_builder.add_edge("knowledge_retrieval", "orchestrator")
+        graph_builder.add_edge("api_interaction", "orchestrator")
+
+        # self.graph = graph_builder.compile(checkpointer=MemorySaver())
+        self.graph = graph_builder.compile(checkpointer=checkpointer)
+
+        try:
+            # Generate the graph visualization
+            graph_png = self.graph.get_graph().draw_mermaid_png()
+
+            # Save to file
+            with open("insurance_agent_graph.png", "wb") as f:
+                f.write(graph_png)
+            logger.info("Graph visualization saved as insurance_agent_graph.png")
+
+            # Also display if in Jupyter environment
+            try:
+                from IPython.display import Image, display
+                display(Image(graph_png))
+            except ImportError:
+                # Not in Jupyter environment, just save the file
+                pass
+
+        except Exception as e:
+            logger.error(f"Error generating graph visualization: {e}")
+
+    def _route_decision(self, state: AgentState) -> str:
+        #TODO decide with llm
+        """Decide which path to take based on state"""
+        if state["error"]:
+            return "end"
+
+        if state["current_step"] in ["complete", "general_response", "api_completed", "knowledge_retrieved"]:
+            return "end"
+
+        # This is simplified - in practice, the orchestrator would set routing info
+        if "knowledge" in state["context"]:
+            return "knowledge"
+        elif "api" in state["context"]:
+            return "api"
+        else:
+            return "end"
+
+    async def _orchestrator_node(self, state: AgentState) -> AgentState:
+        """Orchestrator node"""
+        return await self.process(state)
+
+    async def _knowledge_node(self, state: AgentState) -> AgentState:
+        """Knowledge retrieval node"""
+        return await self.knowledge_agent.process(state)
+
+    async def _api_node(self, state: AgentState) -> AgentState:
+        """API interaction node"""
+        return await self.api_agent.process(state)
 
     async def process(self, state: AgentState) -> AgentState:
         """Orchestrate the conversation flow"""
@@ -229,3 +330,16 @@ class OrchestratorAgentNew(BaseAgent):
             state["messages"].append(AIMessage( content="I'm here to help with your insurance needs. You can ask about your policies, check claim status, or submit new claims." ))
 
         return state
+
+    async def process_message(self, message, session_id):
+        config = {'configurable':{'thread_id':session_id}}
+        return await self.graph.ainvoke({
+            "messages": [HumanMessage(message)],
+            "user_id": "test_user",  # You should pass this as parameter
+            "session_id": session_id,
+            "current_step": "start",
+            "context": {},
+            "needs_confirmation": False,
+            "pending_action": None,
+            "error": None
+        }, config=config)

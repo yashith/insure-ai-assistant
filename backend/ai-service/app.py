@@ -6,12 +6,14 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from langchain_core.language_models.llms import aget_prompts
 from pydantic import BaseModel
+
+from agents.orchestrator_agent_new import OrchestratorAgentNew
 from graph.insuarance_agent_graph import InsuranceAgentGraph
 from graph.insuarance_agent_graph_new import InsuranceAgentGraphNew
 
 # build LangGraph workflow
 # graph = build_chat_graph(get_retrieval_agent, get_api_agent, get_fallback_agent)
-agent_graph = InsuranceAgentGraphNew(
+agent_graph = OrchestratorAgentNew(
     database_url="postgresql://postgres:root@localhost:5432/postgres?sslmode=disable", #TODO move to env file
     api_base_url=getenv("EXTERNAL_API_BASE_URL")
 )
