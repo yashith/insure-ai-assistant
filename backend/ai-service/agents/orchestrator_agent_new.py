@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 
 from agents.api_interaction_agent import APIInteractionAgent
+from agents.api_agent_with_tools import ApiToolAgent
 from agents.base_agent import BaseAgent, AgentState
 from agents.knowledge_retrieval_agent import KnowledgeRetrievalAgent
 
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 class QueryType(Enum):
     KNOWLEDGE = "knowledge"
     API = "api"
+    API_TOOLS = "api_tools"  # Add new routing option for tool-based API calls
     GENERAL = "general"
     CONFIRMATION = "confirmation"
 
@@ -25,6 +27,7 @@ class OrchestratorAgentNew(BaseAgent):
 
         self.knowledge_agent = knowledge_agent
         self.api_agent = api_agent
+        self.api_tool_agent = ApiToolAgent()  # Initialize the tool-based API agent
 
         self.routing_prompt = ChatPromptTemplate.from_messages([
             ("system", """You are an orchestrator for an insurance AI assistant.
@@ -75,6 +78,11 @@ class OrchestratorAgentNew(BaseAgent):
 
         elif query_type == QueryType.API:
             state = await self.api_agent.process(state)
+            
+        elif query_type == QueryType.API_TOOLS:
+            state = await self.api_tool_agent.process(state)
+            # Post-process and reformat the API tool response
+            state = await self._format_api_tool_response(state)
 
         else:
             # Handle with general conversational agent
@@ -91,7 +99,11 @@ class OrchestratorAgentNew(BaseAgent):
         if any(word in query_lower for word in ["yes", "no", "confirm", "proceed", "cancel"]):
             return QueryType.CONFIRMATION
 
-        # Check for API-related keywords
+        # Check for tool-based API queries (specific claim lookups by ID)
+        if self._is_tool_api_query(query_lower):
+            return QueryType.API_TOOLS
+
+        # Check for API-related keywords (general API interactions)
         if self.api_agent.is_api_query(query):
             return QueryType.API
 
@@ -100,6 +112,70 @@ class OrchestratorAgentNew(BaseAgent):
             return QueryType.KNOWLEDGE
 
         return QueryType.GENERAL
+
+    def _is_tool_api_query(self, query: str) -> bool:
+        """Check if query should use tool-based API handling"""
+        # Route to ApiToolAgent for specific claim ID lookups
+        tool_keywords = [
+            "claim id", "claim number", "check claim", "claim status",
+            "my claim", "claim details", "lookup claim"
+        ]
+        
+        # Also check if query contains what looks like a claim ID (numbers)
+        import re
+        has_claim_id = re.search(r'\b\d{4,}\b', query)  # 4+ digit numbers
+        
+        return any(keyword in query for keyword in tool_keywords) or (
+            has_claim_id and "claim" in query
+        )
+
+    async def _format_api_tool_response(self, state: AgentState) -> AgentState:
+        """Format and enhance the API tool response"""
+        try:
+            if not state["messages"] or state["error"]:
+                return state
+
+            # Get the latest AI message (from ApiToolAgent)
+            latest_message = state["messages"][-1]
+            if not hasattr(latest_message, 'content'):
+                return state
+
+            raw_response = latest_message.content
+            
+            # Create a formatting prompt
+            formatting_prompt = ChatPromptTemplate.from_messages([
+                ("system", """You are a customer service representative for an insurance company.
+                Reformat the following API response into a friendly, professional customer service response.
+                
+                Guidelines:
+                1. Use a warm, helpful tone
+                2. Present information clearly and organized
+                3. Add relevant next steps or offers to help
+                4. If there's an error, provide helpful guidance
+                5. Keep insurance terminology customer-friendly
+                
+                Raw API Response: {raw_response}
+                
+                Reformat this into a professional customer service response:"""),
+                ("human", "Please format this response for the customer")
+            ])
+
+            # Use the LLM to reformat the response
+            formatted_response = await self.llm.ainvoke(
+                formatting_prompt.format_messages(raw_response=raw_response)
+            )
+
+            # Replace the raw response with formatted one
+            state["messages"][-1] = AIMessage(content=formatted_response.content)
+            
+            logger.info("API tool response formatted successfully")
+
+        except Exception as e:
+            logger.error(f"Error formatting API tool response: {e}")
+            # If formatting fails, keep the original response
+            
+        return state
+
 
     async def _handle_confirmation(self, state: AgentState, user_message: str) -> AgentState:
         """Handle confirmation responses"""
