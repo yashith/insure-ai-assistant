@@ -1,19 +1,19 @@
 from abc import ABC, abstractmethod
 from os import getenv
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Annotated, TypedDict
 
 from dotenv import load_dotenv
-from langchain_community.chat_models import ChatOpenAI
-from pydantic import BaseModel
-from langchain_core.messages import BaseMessage
+from langchain_openai import ChatOpenAI
+from langgraph.graph import add_messages
+from langchain_core.messages import BaseMessage, AnyMessage
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class AgentState(BaseModel):
+class AgentState(TypedDict):
     """Base state for all agents"""
-    messages: List[BaseMessage] = []
+    messages: Annotated[List[AnyMessage], add_messages]
     user_id: str
     session_id: str
     current_step: str = ""
