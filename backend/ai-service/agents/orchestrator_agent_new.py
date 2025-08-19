@@ -2,6 +2,7 @@ import json
 import logging
 from enum import Enum
 from typing import Dict, Any, Literal, TypedDict
+from pydantic import BaseModel
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
@@ -26,6 +27,12 @@ class QueryType(Enum):
     CONFIRMATION = "confirmation"
 
 
+class RoutingDecision(BaseModel):
+    """Model for LLM routing decisions"""
+    agent: Literal["knowledge", "api", "end"] = "end"
+    reasoning: str = "Default routing decision"
+
+
 class OrchestratorAgentNew(BaseAgent):
     def __init__(self,database_url,api_base_url, **kwargs):
         super().__init__(**kwargs)
@@ -44,19 +51,36 @@ class OrchestratorAgentNew(BaseAgent):
         # self.graph = self._build_graph()
 
         self.routing_prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are an orchestrator for an insurance AI assistant.
-            Analyze the user's message and determine the best routing strategy.
+            ("system", """You are a routing agent for an insurance AI assistant.
+            Analyze the user's message and determine which specialized agent should handle it.
 
-            Consider:
-            1. Is this a knowledge question about policies, coverage, or procedures?
-            2. Is this an API request for claims, status checks, or calculations?
-            3. Is this a confirmation response (yes/no)?
-            4. Is this a general conversation?
+            Available agents:
+            - "knowledge": For questions about insurance policies, procedures, coverage types, and general information
+            - "api": For checking claim status, submitting claims, or any requests involving specific customer data
+            - "end": For general conversation, greetings, or when the task is complete
+
+            Agent Capabilities:
+            KNOWLEDGE Agent:
+            - Explains insurance policies and coverage
+            - Answers questions about procedures and processes  
+            - Provides general insurance information and definitions
+            - Explains benefits, deductibles, and terms
+
+            API Agent:
+            - Looks up claim status using claim IDs
+            - Submits new insurance claims
+            - Processes customer-specific requests
+            - Handles any request requiring customer data lookup
+
+            Routing Rules:
+            - Route to "knowledge" for informational questions
+            - Route to "api" for data lookups or submissions
+            - Route to "end" for greetings, thanks, or completion
 
             Current context: {context}
             User message: {message}
 
-            Respond with your routing decision and reasoning."""),
+            Choose the most appropriate agent and provide your reasoning."""),
             ("human", "{message}")
         ])
         self.fallback_prompt = ChatPromptTemplate.from_messages([
@@ -132,22 +156,51 @@ class OrchestratorAgentNew(BaseAgent):
         except Exception as e:
             logger.error(f"Error generating graph visualization: {e}")
 
-    def _route_decision(self, state: AgentState) -> str:
-        #TODO decide with llm
-        """Decide which path to take based on state"""
-        if state["error"]:
-            return "end"
+    async def _classify_query(self, state: AgentState) -> Command[Literal["knowledge", "api", "end"]]:
+        """LLM-based routing decision"""
+        try:
+            # Check for completion conditions first
+            if state["error"]:
+                return Command(goto="end")
 
-        if state["current_step"] in ["complete", "general_response", "api_completed", "knowledge_retrieved"]:
-            return "end"
+            if state["current_step"] in ["complete", "general_response", "api_completed", "knowledge_retrieved"]:
+                return Command(goto="end")
 
-        # This is simplified - in practice, the orchestrator would set routing info
-        if "knowledge" in state["context"]:
-            return "knowledge"
-        elif "api" in state["context"]:
-            return "api"
-        else:
-            return "end"
+            # Get the latest user message
+            user_message = None
+            if state["messages"]:
+                for msg in reversed(state["messages"]):
+                    if isinstance(msg, HumanMessage):
+                        user_message = msg.content
+                        break
+
+            if not user_message:
+                return Command(goto="end")
+
+            # Use LLM with structured output for routing
+            llm_with_structure = self.llm.with_structured_output(RoutingDecision)
+            
+            routing_decision = await llm_with_structure.ainvoke(
+                self.routing_prompt.format_messages(
+                    message=user_message,
+                    context=json.dumps(state["context"], default=str)
+                )
+            )
+
+            logger.info(f"LLM routing decision: {routing_decision.agent} - {routing_decision.reasoning}")
+            
+            # Update state context with routing decision for transparency
+            state["context"]["routing_decision"] = {
+                "agent": routing_decision.agent,
+                "reasoning": routing_decision.reasoning
+            }
+            
+            return Command(goto=routing_decision.agent)
+
+        except Exception as e:
+            logger.error(f"Error in LLM routing: {e}")
+            # Fallback to end if routing fails
+            return Command(goto="end")
 
     async def _orchestrator_node(self, state: AgentState) -> AgentState:
         """Orchestrator node"""
@@ -172,15 +225,15 @@ class OrchestratorAgentNew(BaseAgent):
             return await self._handle_confirmation(state, user_message)
 
         # Determine query type and route accordingly
-        query_type = self._classify_query(user_message, state['context'])
+        query_type = await self._classify_query(state)
 
-        if query_type == QueryType.KNOWLEDGE:
+        if query_type.goto == QueryType.KNOWLEDGE.value:
             state = await self.knowledge_agent.process(state)
 
-        elif query_type == QueryType.API:
-            state = await self.api_agent.process(state)
+        # elif query_type.goto == QueryType.API:
+        #     state = await self.api_agent.process(state)
             
-        elif query_type == QueryType.API_TOOLS:
+        elif query_type.goto == QueryType.API.value:
             state = await self.api_tool_agent.process(state)
             # Post-process and reformat the API tool response
             state = await self._format_api_tool_response(state)
@@ -192,8 +245,10 @@ class OrchestratorAgentNew(BaseAgent):
         return state
 
 
-    def _classify_query(self, query: str, context: Dict[str, Any]) -> QueryType:
+    def _route_decision(self, state: AgentState) -> str:
         """Classify the type of user query"""
+        # return state["context"]["routing_decision"]["agent"]
+        return "end"
         query_lower = query.lower()
 
         # Check for confirmation words
@@ -249,11 +304,9 @@ class OrchestratorAgentNew(BaseAgent):
                 Reformat the following API response into a friendly, professional customer service response.
                 
                 Guidelines:
-                1. Use a warm, helpful tone
+                1. Keep it Simple and short
                 2. Present information clearly and organized
-                3. Add relevant next steps or offers to help
-                4. If there's an error, provide helpful guidance
-                5. Keep insurance terminology customer-friendly
+                3. If there's an error, provide helpful guidance
                 
                 Raw API Response: {raw_response}
                 
