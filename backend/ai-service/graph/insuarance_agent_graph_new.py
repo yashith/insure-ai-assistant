@@ -6,13 +6,15 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from langgraph.constants import START
+from langgraph.constants import START, END
 from langgraph.graph import StateGraph
 from langgraph.store.base import BaseStore
 from langgraph.store.postgres import PostgresStore
 from psycopg import Connection, AsyncConnection
 
+from agents.api_interaction_agent import APIInteractionAgent
 from agents.base_agent import BaseAgent, AgentState
+from agents.knowledge_retrieval_agent import KnowledgeRetrievalAgent
 from agents.orchestrator_agent_new import OrchestratorAgentNew
 from graph.insuarance_agent_graph import InsuranceAgentGraph
 
@@ -38,7 +40,9 @@ class InsuranceAgentGraphNew():
     def __init__(self, database_url: str, api_base_url: str):
         self.database_url = database_url
         self.api_base_url = api_base_url
-        self.orchestrator= OrchestratorAgentNew()
+        self.knowledge_agent = KnowledgeRetrievalAgent(database_url)
+        self.api_agent = APIInteractionAgent(api_base_url)
+        self.orchestrator= OrchestratorAgentNew(self.knowledge_agent, self.api_agent)
 
         # Initialize agents
         self.checkpointer = None
@@ -64,8 +68,25 @@ class InsuranceAgentGraphNew():
         await checkpointer.setup()
 
         # graph_builder.add_node("ChatNode", ChatNode)
-        graph_builder.add_node("Orchestrator", self._orchestrator_node)
-        graph_builder.add_edge(START, "Orchestrator")
+        graph_builder.add_node("orchestrator", self._orchestrator_node)
+        graph_builder.add_node("knowledge_retrieval", self._knowledge_node)
+        graph_builder.add_node("api_interaction", self._api_node)
+
+        graph_builder.add_edge(START, "orchestrator")
+
+        graph_builder.add_conditional_edges(
+            "orchestrator",
+            self._route_decision,
+            {
+                "knowledge": "knowledge_retrieval",
+                "api": "api_interaction",
+                "end": END
+            }
+        )
+
+        graph_builder.add_edge("knowledge_retrieval", "orchestrator")
+        graph_builder.add_edge("api_interaction", "orchestrator")
+
         # self.graph = graph_builder.compile(checkpointer=MemorySaver())
         self.graph = graph_builder.compile(checkpointer=checkpointer)
 
@@ -73,6 +94,31 @@ class InsuranceAgentGraphNew():
     async def _orchestrator_node(self, state: AgentState) -> AgentState:
         """Orchestrator node"""
         return await self.orchestrator.process(state)
+
+    async def _knowledge_node(self, state: AgentState) -> AgentState:
+        """Knowledge retrieval node"""
+        return await self.knowledge_agent.process(state)
+
+    async def _api_node(self, state: AgentState) -> AgentState:
+        """API interaction node"""
+        return await self.api_agent.process(state)
+
+
+    def _route_decision(self, state: AgentState) -> str:
+        """Decide which path to take based on state"""
+        if state["error"]:
+            return "end"
+
+        if state["current_step"] in ["complete", "general_response", "api_completed", "knowledge_retrieved"]:
+            return "end"
+
+        # This is simplified - in practice, the orchestrator would set routing info
+        if "knowledge" in state["context"]:
+            return "knowledge"
+        elif "api" in state["context"]:
+            return "api"
+        else:
+            return "end"
 
     async def process_message(self, message:str, session_id:str):
         config = {'configurable':{'thread_id':session_id}}

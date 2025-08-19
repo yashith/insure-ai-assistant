@@ -45,17 +45,17 @@ class APIInteractionAgent(BaseAgent):
     async def process(self, state: AgentState) -> AgentState:
         """Process API interaction request"""
         try:
-            logger.info(f"APIInteractionAgent processing for session {state.session_id}")
+            logger.info(f"APIInteractionAgent processing for session {state['session_id']}")
 
             # Get the latest user message
             user_message = None
-            for msg in reversed(state.messages):
+            for msg in reversed(state['messages']):
                 if isinstance(msg, HumanMessage):
                     user_message = msg.content
                     break
 
             if not user_message:
-                state.error = "No user message found for API interaction"
+                state['error']= "No user message found for API interaction"
                 return state
 
             # Determine API action needed
@@ -64,27 +64,27 @@ class APIInteractionAgent(BaseAgent):
             if api_action["action"] == "need_info":
                 # Need more information from user
                 response = api_action["message"]
-                state.messages.append(AIMessage(content=response))
-                state.needs_confirmation = False
-                state.current_step = "awaiting_info"
+                state['messages'].append(AIMessage(content=response))
+                state['needs_confirmation']= False
+                state['current_step']= "awaiting_info"
 
             elif api_action["action"] == "confirm":
                 # Need confirmation before API call
-                state.pending_action = api_action
-                state.needs_confirmation = True
-                state.messages.append(AIMessage(content=api_action["message"]))
-                state.current_step = "awaiting_confirmation"
+                state['pending_action']= api_action
+                state['needs_confirmation']= True
+                state['messages'].append(AIMessage(content=api_action["message"]))
+                state['current_step'] = "awaiting_confirmation"
 
             elif api_action["action"] == "execute":
                 # Execute API call
                 result = await self._execute_api_call(api_action)
-                state.messages.append(AIMessage(content=result["message"]))
-                state.context.update(result.get("data", {}))
-                state.current_step = "api_completed"
+                state["messages"].append(AIMessage(content=result["message"]))
+                state["context"].update(result.get("data", {}))
+                state["current_step"]= "api_completed"
 
         except Exception as e:
             logger.error(f"Error in APIInteractionAgent: {e}")
-            state.error = f"API interaction failed: {str(e)}"
+            state["error"] = f"API interaction failed: {str(e)}"
 
         return state
 

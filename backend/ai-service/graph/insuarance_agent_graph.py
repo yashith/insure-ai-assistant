@@ -2,17 +2,21 @@ import logging
 from typing import Dict, Any, TypedDict, Annotated, Sequence
 
 from langgraph._internal._typing import TypedDictLikeV1, TypedDictLikeV2, DataclassLike
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.memory import MemorySaver, InMemorySaver
+from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph import StateGraph, END
 import uuid
 
 from langgraph.graph.state import CompiledStateGraph
+from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel
 
 from agents.orchestrator_agent import OrchestratorAgent
 from agents.knowledge_retrieval_agent import KnowledgeRetrievalAgent
 from agents.api_interaction_agent import APIInteractionAgent
 from agents.base_agent import AgentState
+from psycopg import Connection, AsyncConnection
 
 logger = logging.getLogger(__name__)
 class InsuranceAgentGraph:
@@ -26,21 +30,40 @@ class InsuranceAgentGraph:
         self.knowledge_agent = KnowledgeRetrievalAgent(database_url)
         self.api_agent = APIInteractionAgent(api_base_url)
         self.orchestrator = OrchestratorAgent(self.knowledge_agent, self.api_agent)
-        self.memory = MemorySaver()
+        self.checkpointer = None
+        # Build the graph
+        self.graph = None
+        # self.graph = self._build_graph()
+
+    async def initialize(self):
+        """Initialize the graph and database connections"""
+        # Create connection for checkpointer
+        connection_kwargs = {
+            "autocommit": True,
+            "prepare_threshold": 0,
+        }
+
+        # Create a dedicated connection for the checkpointer
+        db_connection = await AsyncConnection.connect(
+            self.database_url,
+            **connection_kwargs
+        )
+
+        # Create checkpointer with the connection
+        self.checkpointer = AsyncPostgresSaver(db_connection)
+
+        # Setup checkpointer tables
+        await self.checkpointer.setup()
 
         # Build the graph
-        self.graph = self._build_graph()
+        await self.build_graph()
 
-        self.initial_state = None
-
-    def _build_graph(self) -> CompiledStateGraph[
+    async def build_graph(self) -> CompiledStateGraph[
         TypedDictLikeV1 | TypedDictLikeV2 | DataclassLike | BaseModel | Any, Any, Any, Any]:
         """Build the LangGraph workflow"""
 
         # Define the graph
         workflow = StateGraph(AgentState)
-
-        # Add nodes
         workflow.add_node("orchestrator", self._orchestrator_node)
         workflow.add_node("knowledge_retrieval", self._knowledge_node)
         workflow.add_node("api_interaction", self._api_node)
@@ -64,7 +87,7 @@ class InsuranceAgentGraph:
         workflow.add_edge("api_interaction", "end")
         workflow.add_edge("end", END)
 
-        return workflow.compile(checkpointer=self.memory)
+        self.graph = workflow.compile(checkpointer=self.checkpointer)
 
     async def _orchestrator_node(self, state: AgentState) -> AgentState:
         """Orchestrator node"""
@@ -80,21 +103,21 @@ class InsuranceAgentGraph:
 
     async def _end_node(self, state: AgentState) -> AgentState:
         """End node"""
-        state.current_step = "complete"
+        state["current_step"] = "complete"
         return state
 
     def _route_decision(self, state: AgentState) -> str:
         """Decide which path to take based on state"""
-        if state.error:
+        if state["error"]:
             return "end"
 
-        if state.current_step in ["complete", "general_response", "api_completed", "knowledge_retrieved"]:
+        if state["current_step"] in ["complete", "general_response", "api_completed", "knowledge_retrieved"]:
             return "end"
 
         # This is simplified - in practice, the orchestrator would set routing info
-        if "knowledge" in state.context:
+        if "knowledge" in state["context"]:
             return "knowledge"
-        elif "api" in state.context:
+        elif "api" in state["context"]:
             return "api"
         else:
             return "end"
@@ -105,34 +128,36 @@ class InsuranceAgentGraph:
         if not session_id:
             session_id = str(uuid.uuid4())
 
-        # Create initial state
-        if not self.initial_state:
-            self.initial_state = AgentState(
-                messages=[],
-                user_id=user_id,
-                session_id=session_id,
-                current_step="start",
-                context={},
-                needs_confirmation=False,
-                pending_action=None,
-                error=None
-            )
-
-        # Add user message
         from langchain_core.messages import HumanMessage
+        state = {
+            "messages": [HumanMessage(content=message)],
+            "user_id": user_id,
+            "session_id": session_id,
+            "current_step": "start",
+            "context": {},
+            "needs_confirmation": False,
+            "pending_action": None,
+            "error": None
+        }
+        # Add user message
         from langchain_core.messages import AIMessage
-        self.initial_state.messages.append(HumanMessage(content=message))
+        # state.messages.append(HumanMessage(content=message))
         config = {'configurable':{'thread_id':session_id}}
+        #TODO for testing
+        # current_state = await self.graph.aget_state(config)
+        # print(f"Current state has {len(current_state.values['messages']) if current_state.values else 0} messages")
         try:
             # Run the graph
-            result = await self.graph.ainvoke(self.initial_state,config = config)
+
+            result = await self.graph.ainvoke(state,config=config)
 
             # Extract the AI response
             ai_response = None
             for msg in reversed(result["messages"]):
                 if hasattr(msg, 'content') and msg.__class__.__name__ == 'AIMessage':
                     ai_response = msg.content
-                    self.initial_state.messages.append(AIMessage(content=ai_response))
+                    #TODO is this required?
+                    # self.initial_state.messages.append(AIMessage(content=ai_response))
                     break
 
             return {

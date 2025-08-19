@@ -48,17 +48,17 @@ class KnowledgeRetrievalAgent(BaseAgent):
     async def process(self, state: AgentState) -> AgentState:
         """Process knowledge retrieval request"""
         try:
-            logger.info(f"KnowledgeRetrievalAgent processing for session {state.session_id}")
+            logger.info(f"KnowledgeRetrievalAgent processing for session {state["session_id"]}")
 
             # Get the latest user message
             user_message = None
-            for msg in reversed(state.messages):
+            for msg in reversed(state["messages"]):
                 if isinstance(msg, HumanMessage):
                     user_message = msg.content
                     break
 
             if not user_message:
-                state.error = "No user message found for knowledge retrieval"
+                state["error"] = "No user message found for knowledge retrieval"
                 return state
 
             # Retrieve relevant documents
@@ -79,8 +79,8 @@ class KnowledgeRetrievalAgent(BaseAgent):
             )
 
             # Update state
-            state.messages.append(AIMessage(content=response.content))
-            state.context["retrieved_documents"] = [
+            state["messages"].append(AIMessage(content=response.content))
+            state["context"]["retrieved_documents"] = [
                 {
                     "title": doc.metadata.get("title", "Unknown"),
                     "content": doc.page_content[:200] + "...",
@@ -88,14 +88,14 @@ class KnowledgeRetrievalAgent(BaseAgent):
                 }
                 for doc in docs
             ]
-            state.context["knowledge_retrieved"] = True
-            state.current_step = "knowledge_retrieved"
+            state["context"]["knowledge_retrieved"] = True
+            state["current_step"] = "knowledge_retrieved"
 
-            logger.info(f"Knowledge retrieval completed for session {state.session_id}")
+            logger.info(f"Knowledge retrieval completed for session {state['session_id']}")
 
         except Exception as e:
             logger.error(f"Error in KnowledgeRetrievalAgent: {e}")
-            state.error = f"Knowledge retrieval failed: {str(e)}"
+            state["error"] = f"Knowledge retrieval failed: {str(e)}"
 
         return state
 
