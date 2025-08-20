@@ -1,6 +1,7 @@
 import logging
 import os
 from os import getenv
+from typing import List
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, AIMessage
