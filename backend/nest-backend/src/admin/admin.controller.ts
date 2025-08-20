@@ -14,10 +14,10 @@ import { extname } from 'path';
 import { AdminService } from './admin.service';
 import {ApiBody, ApiConsumes} from "@nestjs/swagger";
 import {UploadFileDto} from "./dto/file.upload.dto";
-import {JwtAuthGuard} from "../auth/common/guards/jwt-auth.guard";
-import {RolesGuard} from "../auth/common/guards/roles.guard";
-import {Roles} from "../auth/common/decorators/role.decorator";
-import {Role} from "../auth/common/constants/roles.const";
+import {JwtAuthGuard} from "../common/guards/jwt-auth.guard";
+import {RolesGuard} from "../common/guards/roles.guard";
+import {Roles} from "../common/decorators/role.decorator";
+import {Role} from "../common/constants/roles.const";
 
 @Controller('admin')
 export class AdminController {

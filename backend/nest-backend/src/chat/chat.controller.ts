@@ -1,9 +1,9 @@
 import {Controller, Get, Post, Body, UseGuards, Req} from '@nestjs/common';
 import { ChatService } from './chat.service';
-import {JwtAuthGuard} from "../auth/common/guards/jwt-auth.guard";
-import {RolesGuard} from "../auth/common/guards/roles.guard";
-import {Roles} from "../auth/common/decorators/role.decorator";
-import {Role} from "../auth/common/constants/roles.const";
+import {JwtAuthGuard} from "../common/guards/jwt-auth.guard";
+import {RolesGuard} from "../common/guards/roles.guard";
+import {Roles} from "../common/decorators/role.decorator";
+import {Role} from "../common/constants/roles.const";
 import {ChatDto} from "./dto/chat.dto";
 
 @UseGuards(JwtAuthGuard,RolesGuard)
