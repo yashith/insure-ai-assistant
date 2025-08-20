@@ -61,9 +61,7 @@ class OrchestratorAgentNew(BaseAgent):
 
             Agent Capabilities:
             KNOWLEDGE Agent:
-            - Explains insurance policies and coverage
-            - Answers questions about procedures and processes  
-            - Provides general insurance information and definitions
+            - Fetch about policy details 
             - Explains benefits, deductibles, and terms
 
             API Agent:
@@ -218,35 +216,6 @@ class OrchestratorAgentNew(BaseAgent):
 
     async def process(self, state: AgentState) -> AgentState:
         return state
-        """Orchestrate the conversation flow"""
-        user_message = state["messages"][-1].content
-
-        if not user_message:
-            state["error"] = "No user message found"
-            return state
-        if state["needs_confirmation"]:
-            return await self._handle_confirmation(state, user_message)
-
-        # Determine query type and route accordingly
-        query_type = await self._classify_query(state)
-
-        if query_type.goto == QueryType.KNOWLEDGE.value:
-            state = await self.knowledge_agent.process(state)
-
-        # elif query_type.goto == QueryType.API:
-        #     state = await self.api_agent.process(state)
-            
-        elif query_type.goto == QueryType.API.value:
-            state = await self.api_tool_agent.process(state)
-            # Post-process and reformat the API tool response
-            state = await self._format_api_tool_response(state)
-
-        else:
-            # Handle with general conversational agent
-            state = await self._handle_general_query(state, user_message)
-
-        return state
-
 
     async def _route_decision(self, state: AgentState) -> str:
         """Route decision directly usable in conditional branches"""
@@ -303,104 +272,6 @@ class OrchestratorAgentNew(BaseAgent):
         except Exception as e:
             logger.error(f"Error in routing decision: {e}")
             return "fallback"
-
-    def _is_tool_api_query(self, query: str) -> bool:
-        """Check if query should use tool-based API handling"""
-        # Route to ApiToolAgent for specific claim ID lookups
-        tool_keywords = [
-            "claim id", "claim number", "check claim", "claim status",
-            "my claim", "claim details", "lookup claim"
-        ]
-        
-        # Also check if query contains what looks like a claim ID (numbers)
-        import re
-        has_claim_id = re.search(r'\b\d{4,}\b', query)  # 4+ digit numbers
-        
-        return any(keyword in query for keyword in tool_keywords) or (
-            has_claim_id and "claim" in query
-        )
-
-    async def _format_api_tool_response(self, state: AgentState) -> AgentState:
-        """Format and enhance the API tool response"""
-        try:
-            if not state["messages"] or state["error"]:
-                return state
-
-            # Get the latest AI message (from ApiToolAgent)
-            latest_message = state["messages"][-1]
-            if not hasattr(latest_message, 'content'):
-                return state
-
-            raw_response = latest_message.content
-            
-            # Create a formatting prompt
-            formatting_prompt = ChatPromptTemplate.from_messages([
-                ("system", """You are a customer service representative for an insurance company.
-                Reformat the following API response into a friendly, professional customer service response.
-                
-                Guidelines:
-                1. Keep it Simple and short
-                2. Present information clearly and organized
-                3. If there's an error, provide helpful guidance
-                
-                Raw API Response: {raw_response}
-                
-                Reformat this into a professional customer service response:"""),
-                ("human", "Please format this response for the customer")
-            ])
-
-            # Use the LLM to reformat the response
-            formatted_response = await self.llm.ainvoke(
-                formatting_prompt.format_messages(raw_response=raw_response)
-            )
-
-            # Replace the raw response with formatted one
-            state["messages"][-1] = AIMessage(content=formatted_response.content)
-            
-            logger.info("API tool response formatted successfully")
-
-        except Exception as e:
-            logger.error(f"Error formatting API tool response: {e}")
-            # If formatting fails, keep the original response
-            
-        return state
-
-
-    async def _handle_confirmation(self, state: AgentState, user_message: str) -> AgentState:
-        """Handle confirmation responses"""
-        confirmation_words = ["yes", "y", "confirm", "proceed", "ok", "okay"]
-        rejection_words = ["no", "n", "cancel", "stop"]
-
-        if any(word in user_message.lower() for word in confirmation_words):
-            # User confirmed, execute pending action
-            if state['pending_action']:
-                if state['pending_action'].get("api"):
-                    # Execute API action
-                    state['pending_action']["action"] = "execute"
-                    state = await self.api_agent._execute_api_call(state['pending_action'])
-                    response_msg = state['messages'][-1] if state['messages'] else AIMessage(content="Action completed.")
-                    if not isinstance(state['messages'][-1], AIMessage):
-                        state['messages'].append(response_msg)
-                else:
-                    state['messages'].append(AIMessage(content="Action completed successfully."))
-
-            state['needs_confirmation ']= False
-            state['pending_action ']= None
-            state['current_step'] = "completed"
-
-        elif any(word in user_message.lower() for word in rejection_words):
-            # User rejected
-            state['messages'].append(AIMessage(content="Action cancelled. How else can I help you?"))
-            state['needs_confirmation'] = False
-            state['pending_action'] = None
-            state['current_step'] = "cancelled"
-
-        else:
-            # Unclear response, ask for clarification
-            state['messages'].append(
-                AIMessage(content="I didn't understand. Please respond with 'yes' to proceed or 'no' to cancel."))
-
-        return state
 
     async def _handle_general_query(self, state ):
         try:

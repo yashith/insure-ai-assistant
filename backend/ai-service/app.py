@@ -29,7 +29,6 @@ class ChatRequest(BaseModel):
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
-    print(req.userId, req.role, req.message)
     result = await agent_graph.process_message(
         message=req.message,
         session_id="example_session"
