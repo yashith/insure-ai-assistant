@@ -29,8 +29,8 @@ class BaseAgent(ABC):
     def __init__(self, llm: Optional[ChatOpenAI] = None):
         load_dotenv()
         self.llm = ChatOpenAI(
-            api_key=getenv("OPENROUTER_API_KEY"),
-            base_url=getenv("OPENROUTER_BASE_URL"),
+            # api_key=getenv("OPENROUTER_API_KEY"),
+            # base_url=getenv("OPENROUTER_BASE_URL"),
             model=getenv("MODEL_NAME"),
             temperature=0.8
         )
