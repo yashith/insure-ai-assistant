@@ -3,6 +3,7 @@ import {AuthService} from "./auth.service";
 import {LoginRequestDto} from "./dto/login.req.dto";
 import {RegisterRequestDto} from "./dto/register.req.dto";
 import {AccessToken} from "./dto/auth.token.dto";
+import {GenericResponse} from "./dto/generic.res.dto";
 
 @Controller('auth')
 export class AuthController {
@@ -13,7 +14,7 @@ export class AuthController {
         return this.authService.login(req);
     }
     @Post('register')
-    async register( @Body() registerBody: RegisterRequestDto): Promise<AccessToken| BadRequestException> {
+    async register( @Body() registerBody: RegisterRequestDto): Promise<GenericResponse| BadRequestException> {
         return await this.authService.register(registerBody);
     }
 }

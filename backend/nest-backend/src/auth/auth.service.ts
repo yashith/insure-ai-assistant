@@ -6,6 +6,7 @@ import {User} from "../user/dto/user.dto";
 import {LoginRequestDto} from "./dto/login.req.dto";
 import {RegisterRequestDto} from "./dto/register.req.dto";
 import {AccessToken} from "./dto/auth.token.dto";
+import {GenericResponse} from "./dto/generic.res.dto";
 
 @Injectable()
 export class AuthService {
@@ -40,14 +41,17 @@ export class AuthService {
             throw new BadRequestException('User not found');
         }
     }
-    async register(user: RegisterRequestDto): Promise<AccessToken> {
+    async register(user: RegisterRequestDto):Promise<GenericResponse> {
         const existingUser = await this.userService.findOne(user.username);
         if (existingUser) {
-            throw new BadRequestException('email already exists');
+            throw new BadRequestException('Username already exists');
         }
         const hashedPassword = await bcrypt.hash(user.username+user.password, 10);
         const newUser: { password: string; username: string } = { ...user, password: hashedPassword };
         await this.userService.create(newUser);
-        return this.login(user);
+
+        return {
+            message: 'User registered successfully',
+        };
     }
 }
