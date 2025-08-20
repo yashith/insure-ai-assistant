@@ -29,7 +29,7 @@ class QueryType(Enum):
 
 class RoutingDecision(BaseModel):
     """Model for LLM routing decisions"""
-    agent: Literal["knowledge", "api", "end"] = "end"
+    agent: Literal["knowledge", "api", "fallback"] = "fallback"
     reasoning: str = "Default routing decision"
 
 
@@ -42,7 +42,7 @@ class OrchestratorAgentNew(BaseAgent):
         self.database_url = database_url
         self.api_base_url = api_base_url
         self.knowledge_agent = KnowledgeRetrievalAgent(database_url)
-        self.api_agent = APIInteractionAgent(api_base_url)
+        self.api_agent = ApiToolAgent()
 
         # Initialize agents
         self.checkpointer = None
@@ -57,7 +57,7 @@ class OrchestratorAgentNew(BaseAgent):
             Available agents:
             - "knowledge": For questions about insurance policies, procedures, coverage types, and general information
             - "api": For checking claim status, submitting claims, or any requests involving specific customer data
-            - "end": For general conversation, greetings, or when the task is complete
+            - "fallback": For general conversation, greetings, or when no specific agent is needed
 
             Agent Capabilities:
             KNOWLEDGE Agent:
@@ -75,7 +75,7 @@ class OrchestratorAgentNew(BaseAgent):
             Routing Rules:
             - Route to "knowledge" for informational questions
             - Route to "api" for data lookups or submissions
-            - Route to "end" for greetings, thanks, or completion
+            - Route to "fallback" for greetings, thanks, or general conversation
 
             Current context: {context}
             User message: {message}
@@ -117,6 +117,7 @@ class OrchestratorAgentNew(BaseAgent):
         graph_builder.add_node("orchestrator", self._orchestrator_node)
         graph_builder.add_node("knowledge_retrieval", self._knowledge_node)
         graph_builder.add_node("api_interaction", self._api_node)
+        graph_builder.add_node("fallback", self._handle_general_query)
 
         graph_builder.add_edge(START, "orchestrator")
 
@@ -126,12 +127,13 @@ class OrchestratorAgentNew(BaseAgent):
             {
                 "knowledge": "knowledge_retrieval",
                 "api": "api_interaction",
+                "fallback": "fallback",
                 "end": END
             }
         )
 
-        graph_builder.add_edge("knowledge_retrieval", "orchestrator")
-        graph_builder.add_edge("api_interaction", "orchestrator")
+        graph_builder.add_edge("knowledge_retrieval", END)
+        graph_builder.add_edge("api_interaction", 'orchestrator')
 
         # self.graph = graph_builder.compile(checkpointer=MemorySaver())
         self.graph = graph_builder.compile(checkpointer=checkpointer)
@@ -215,6 +217,7 @@ class OrchestratorAgentNew(BaseAgent):
         return await self.api_agent.process(state)
 
     async def process(self, state: AgentState) -> AgentState:
+        return state
         """Orchestrate the conversation flow"""
         user_message = state["messages"][-1].content
 
@@ -245,29 +248,60 @@ class OrchestratorAgentNew(BaseAgent):
         return state
 
 
-    def _route_decision(self, state: AgentState) -> str:
-        """Classify the type of user query"""
-        # return state["context"]["routing_decision"]["agent"]
-        return "end"
-        query_lower = query.lower()
+    async def _route_decision(self, state: AgentState) -> str:
+        """Route decision directly usable in conditional branches"""
+        try:
+            # Check for error conditions first
+            if state["error"]:
+                return "end"
 
-        # Check for confirmation words
-        if any(word in query_lower for word in ["yes", "no", "confirm", "proceed", "cancel"]):
-            return QueryType.CONFIRMATION
 
-        # Check for tool-based API queries (specific claim lookups by ID)
-        if self._is_tool_api_query(query_lower):
-            return QueryType.API_TOOLS
-
-        # Check for API-related keywords (general API interactions)
-        if self.api_agent.is_api_query(query):
-            return QueryType.API
-
-        # Check for knowledge-related keywords
-        if self.knowledge_agent.is_knowledge_query(query):
-            return QueryType.KNOWLEDGE
-
-        return QueryType.GENERAL
+            if state["current_step"] in ["api_completed", "knowledge_retrieved"]:
+                return "fallback"
+            # Check if conversation is complete
+            if state["current_step"] in ["complete", "general_response",]:
+                return "end"
+            
+            # Get the latest user message
+            user_message = None
+            if state["messages"]:
+                for msg in reversed(state["messages"]):
+                    if hasattr(msg, 'content'):
+                        user_message = msg.content
+                        break
+            
+            if not user_message:
+                return "end"
+            
+            # Use LLM with structured output for routing
+            llm_with_structure = self.llm.with_structured_output(RoutingDecision)
+            
+            routing_decision = await llm_with_structure.ainvoke(
+                self.routing_prompt.format_messages(
+                    message=user_message,
+                    context=json.dumps(state["context"], default=str)
+                )
+            )
+            
+            logger.info(f"LLM routing decision: {routing_decision.agent} - {routing_decision.reasoning}")
+            
+            # Update state context with routing decision for transparency
+            state["context"]["routing_decision"] = {
+                "agent": routing_decision.agent,
+                "reasoning": routing_decision.reasoning
+            }
+            
+            # Map to available routes
+            if routing_decision.agent == "knowledge":
+                return "knowledge"
+            elif routing_decision.agent == "api":
+                return "api"
+            else:
+                return "fallback"
+        
+        except Exception as e:
+            logger.error(f"Error in routing decision: {e}")
+            return "fallback"
 
     def _is_tool_api_query(self, query: str) -> bool:
         """Check if query should use tool-based API handling"""
@@ -367,8 +401,9 @@ class OrchestratorAgentNew(BaseAgent):
 
         return state
 
-    async def _handle_general_query(self, state, user_message):
+    async def _handle_general_query(self, state ):
         try:
+            user_message = state["messages"][-1].content
             fallback_prompt = self.fallback_prompt.format_messages( message=state["messages"], context=json.dumps(state['context'], default=str) )
             response = await self.llm.ainvoke(fallback_prompt)
             # response = await self.llm.ainvoke(state["messages"])
