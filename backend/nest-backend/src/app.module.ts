@@ -9,6 +9,7 @@ import { AuthService } from './auth/auth.service';
 import { AuthController } from './auth/auth.controller';
 import {UserService} from "./user/user.service";
 import {LoggerMiddleware} from "./middlewear/middlewear.logger";
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import {LoggerMiddleware} from "./middlewear/middlewear.logger";
       UserModule,
       AuthModule,
       ChatModule,
+      AdminModule,
   ],
   controllers: [AppController, AuthController],
   providers: [AppService,AuthService,UserService],
