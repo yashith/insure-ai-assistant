@@ -12,10 +12,10 @@ import {ChatDto} from "./dto/chat.dto";
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
-  @Get()
+/*  @Get()
   getMessages() {
     return this.chatService.getMessages();
-  }
+  }*/
 
   @UseGuards(JwtAuthGuard) // protect with auth
   @Post()

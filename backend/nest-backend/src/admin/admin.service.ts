@@ -56,8 +56,20 @@ export class AdminService {
 
     private async sendToAiService(fileInfo: any) {
         try {
-            const response = await axios.post(`${this.aiServiceUrl}/upload-document`, {
-                file: fileInfo,
+
+            const FormData = require('form-data');
+            const fs = require('fs');
+
+            const formData = new FormData();
+            formData.append('file', fs.createReadStream(fileInfo.path), {
+                filename: fileInfo.originalname,
+                contentType: fileInfo.mimetype
+            });
+
+            const response = await axios.post(`${this.aiServiceUrl}/upload-document`, formData, {
+                headers: {
+                    ...formData.getHeaders()
+                }
             });
             return response.data;
         } catch (error) {
