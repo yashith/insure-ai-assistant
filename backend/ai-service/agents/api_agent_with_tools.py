@@ -20,6 +20,16 @@ def get_claim_details(claim_id: str) -> dict:
     :param claim_id: claim id
     :return: claim details
     """
+    # Validate claim ID format
+    # Check if claim ID is numeric and has valid length
+
+    claim_id = claim_id.strip()
+    if not claim_id.isdigit():
+        return {"error": f"Invalid claim ID format: {claim_id}. Claim ID must be numeric"}
+    if len(claim_id) < 5 or len(claim_id) > 10:
+        return {"error": f"Invalid claim ID length: {claim_id}. Claim ID must be between 4-10 digits"}
+    
+    #TODO create a mock backend to fetch
     # Mock claim database - replace with actual API call
     claims_db = {
         "12345": {"status": "Processing", "amount": "$2,500", "last_updated": "2024-01-15"},
@@ -30,12 +40,15 @@ def get_claim_details(claim_id: str) -> dict:
 @tool
 def submit_new_claim(policy_id: str, damage_discription:str,vehicle:str) -> dict:
     """This Api is used to submit a new claim,
-    Must confirm inputs by user before executing
     :param policy_id: policy id associated with this claim
     :param damage_description: damage description about the vehicle
     :param vehicle: vehicle details
     :return: claim details
     """
+    if not policy_id.isdigit():
+        return {"error": f"Invalid Policy ID format: {policy_id}. Policy ID must be numeric"}
+    if len(policy_id) < 5 or len(policy_id) > 10:
+        return {"error": f"Invalid Policy ID length: {policy_id}. Policy ID must be between 4-10 digits"}
     # Mock claim database - replace with actual API call
     response_db = [
         { "claim_id": "12345", "message": "Claim submitted successfully." },
