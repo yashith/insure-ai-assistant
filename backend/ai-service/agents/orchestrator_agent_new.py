@@ -279,7 +279,7 @@ class OrchestratorAgentNew(BaseAgent):
             
             routing_decision = await llm_with_structure.ainvoke(
                 self.routing_prompt.format_messages(
-                    message=user_message,
+                    message=state["messages"],
                     context=json.dumps(state["context"], default=str)
                 )
             )
