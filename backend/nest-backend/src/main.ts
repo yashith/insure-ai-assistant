@@ -6,6 +6,13 @@ import {AllExceptionsFilter} from "./middlewear/all-exceptions.filter";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  
+  // Enable CORS for frontend
+  app.enableCors({
+    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    credentials: true,
+  });
+  
   const configService = app.get(ConfigService);
   const config = new DocumentBuilder()
       .setTitle("Insurance AI backend")
@@ -19,6 +26,8 @@ async function bootstrap() {
   const port = configService.get<number>('PORT') ?? 3000;
   app.useGlobalFilters(new AllExceptionsFilter());
   await app.listen(port);
+  console.log(`Application is running on: http://localhost:${port}`);
+  console.log(`API docs available at: http://localhost:${port}/api-docs`);
 
 }
 bootstrap();
