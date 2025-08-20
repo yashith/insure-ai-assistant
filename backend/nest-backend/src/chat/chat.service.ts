@@ -1,11 +1,16 @@
 import {HttpException, HttpStatus, Injectable} from '@nestjs/common';
+import {ConfigService} from '@nestjs/config';
 import axios from "axios";
 import {User} from "../user/dto/user.dto";
 
 @Injectable()
 export class ChatService {
-  private messages: { sender: string; content: string }[] = [];
-  private aiServiceUrl = "https://webhook.site/d0e1615f-2328-43be-80ad-58549ce44ed2"; //TODO fetch this from config holder
+  private readonly messages: { sender: string; content: string }[] = [];
+  private readonly aiServiceUrl: string;
+
+  constructor(private configService: ConfigService) {
+    this.aiServiceUrl = this.configService.get<string>('AI_SERVICE_URL', 'http://127.0.0.1:8000') + '/chat';
+  }
   getMessages() {
     return this.messages;
   }
@@ -13,9 +18,9 @@ export class ChatService {
   async sendMessage(message: string, user: User) {
     try {
       const response = await axios.post(this.aiServiceUrl, {
-        userId: user.id,
+        userId: user.id.toString(),
         role: user.role,
-        message,
+        message:message,
       });
 
       return response.data; // return AI response to controller
