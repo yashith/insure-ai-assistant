@@ -122,7 +122,7 @@ class ApiToolAgent(BaseAgent):
                             try:
                                 tool_result = tool.invoke(tool_args)
                                 # Update response with tool result
-                                state["context"] = tool_result
+                                state["context"][tool_name] = tool_result
                                 # response.content += f"\n\nBased on the claim lookup: {tool_result}"
                             except Exception as e:
                                 logger.error(f"Tool execution error: {e}")
