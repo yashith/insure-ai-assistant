@@ -85,7 +85,6 @@ async def upload_document(file: UploadFile):
             "content_type": file.content_type,
             "size": len(file_content),
             "pages": len(pdf_reader.pages),
-            "saved_path": file_path
         })
 
     except HTTPException:
