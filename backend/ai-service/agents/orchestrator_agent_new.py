@@ -256,10 +256,11 @@ class OrchestratorAgentNew(BaseAgent):
                 return "end"
 
 
+            # call fallback with api agent / knowledge agent
             if state["current_step"] in ["api_completed", "knowledge_retrieved"]:
                 return "fallback"
             # Check if conversation is complete
-            if state["current_step"] in ["complete", "general_response",]:
+            if state["current_step"] in ["complete", "general_response","api_processing"]:
                 return "end"
             
             # Get the latest user message
