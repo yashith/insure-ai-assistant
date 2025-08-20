@@ -12,7 +12,6 @@ from langgraph.graph import StateGraph
 from langgraph.types import Command
 from psycopg import Connection, AsyncConnection
 
-from agents.api_interaction_agent import APIInteractionAgent
 from agents.api_agent_with_tools import ApiToolAgent
 from agents.base_agent import BaseAgent, AgentState
 from agents.knowledge_retrieval_agent import KnowledgeRetrievalAgent
