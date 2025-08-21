@@ -14,15 +14,17 @@ async function bootstrap() {
   });
   
   const configService = app.get(ConfigService);
+  app.setGlobalPrefix('api'); // Add this line to set the global prefix
   const config = new DocumentBuilder()
       .setTitle("Insurance AI backend")
       .setDescription('API documentation with executable Swagger UI')
       .setVersion('1.0')
+      .setBasePath('/api') // Set the base path for the API
       .addBearerAuth()  // For JWT
       .addSecurityRequirements('bearer')
       .build();
   const  document = SwaggerModule.createDocument(app,config);
-  SwaggerModule.setup("api-docs",app,document);
+  SwaggerModule.setup("api/api-docs",app,document);
   const port = configService.get<number>('PORT') ?? 3000;
   app.useGlobalFilters(new AllExceptionsFilter());
   await app.listen(port);
