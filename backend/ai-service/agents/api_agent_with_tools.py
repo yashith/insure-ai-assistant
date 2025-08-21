@@ -1,8 +1,11 @@
 import logging
 import random
 from abc import ABC
+from os import getenv
 from typing import Literal
 import json
+import requests
+from requests.exceptions import RequestException, Timeout, ConnectionError
 
 from langchain.agents import Agent
 from langchain_core.messages import HumanMessage
@@ -13,49 +16,101 @@ from agents.base_agent import BaseAgent, AgentState
 
 
 logger = logging.getLogger(__name__)
-
 @tool
-def get_claim_details(claim_id: str) -> dict:
+def get_claim_details(claim_id: str, token: str = None) -> dict:
     """Get claim details from given claim id
     :param claim_id: claim id
     :return: claim details
     """
     # Validate claim ID format
-    # Check if claim ID is numeric and has valid length
-
     claim_id = claim_id.strip()
     if not claim_id.isdigit():
         return {"error": f"Invalid claim ID format: {claim_id}. Claim ID must be numeric"}
     if len(claim_id) < 5 or len(claim_id) > 10:
         return {"error": f"Invalid claim ID length: {claim_id}. Claim ID must be between 4-10 digits"}
     
-    #TODO create a mock backend to fetch
-    # Mock claim database - replace with actual API call
-    claims_db = {
-        "12345": {"status": "Processing", "amount": "$2,500", "last_updated": "2024-01-15"},
-        "67890": {"status": "Approved", "amount": "$1,200", "last_updated": "2024-01-10"},
-        "11111": {"status": "Under Review", "amount": "$3,800", "last_updated": "2024-01-12"}
-    }
-    return claims_db.get(claim_id, {"error": f"Claim {claim_id} not found"})
+    try:
+        # Make API call to get claim details
+        api = getenv("EXTERNAL_API_BASE_URL")+"/api/claim/claim-status"
+        headers = {"Content-Type": "application/json"}
+
+        if token:
+            headers['Authorization'] = f"Bearer {token}"
+
+        payload = {
+            "claim_id": claim_id
+        }
+
+        # Prepare headers
+        if token:
+            headers['Authorization'] = f"Bearer {token}"
+        response = requests.post(
+            api,
+            json=payload,
+            headers=headers,
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            return response.json()
+        elif response.status_code == 404:
+            return {"error": f"Claim {claim_id} not found"}
+        else:
+            return {"error": f"API error: {response.status_code} - {response.text}"}
+
+    except Exception as e:
+        return {"error": f"Could not retrieve required data: {str(e)}"}
 @tool
-def submit_new_claim(policy_id: str, damage_discription:str,vehicle:str) -> dict:
+def submit_new_claim(policy_id: str, damage_description: str, vehicle: str, token: str = None) -> dict:
     """This Api is used to submit a new claim,
     :param policy_id: policy id associated with this claim
     :param damage_description: damage description about the vehicle
     :param vehicle: vehicle details
     :return: claim details
     """
+    # Validate policy ID format
+    policy_id = policy_id.strip()
     if not policy_id.isdigit():
         return {"error": f"Invalid Policy ID format: {policy_id}. Policy ID must be numeric"}
     if len(policy_id) < 5 or len(policy_id) > 10:
         return {"error": f"Invalid Policy ID length: {policy_id}. Policy ID must be between 4-10 digits"}
-    # Mock claim database - replace with actual API call
-    response_db = [
-        { "claim_id": "12345", "message": "Claim submitted successfully." },
-        {"claim_id": "11222", "message": "Claim submitted successfully."},
-        {"claim_id": "12342", "message": "Claim submitted successfully."},
-    ]
-    return random.choice(response_db)
+    
+    # Validate required fields
+    if not damage_description or not damage_description.strip():
+        return {"error": "Damage description is required"}
+    if not vehicle or not vehicle.strip():
+        return {"error": "Vehicle details are required"}
+    
+    try:
+        # Prepare request payload
+
+        api = getenv("EXTERNAL_API_BASE_URL")+"/api/claim/create-claim"
+
+        payload = {
+            "policy_id": policy_id,
+            "damage": damage_description.strip(),
+            "vehicle": vehicle.strip()
+        }
+        
+        # Prepare headers
+        headers = {"Content-Type": "application/json"}
+        if token:
+            headers['Authorization'] = f"Bearer {token}"
+            
+        # Make API call to submit new claim
+        response = requests.post(
+            api,
+            json=payload,
+            headers=headers,
+        )
+        
+        if response.status_code == 201 or response.status_code == 200:
+            return response.json()
+        else:
+            return {"error": f"API error: {response.status_code} - {response.text}"}
+
+    except Exception as e:
+        return {"error": f"Unexpected error: {str(e)}"}
 
 class ApiToolAgent(BaseAgent):
     def __init__(self, **kwargs):
@@ -81,7 +136,9 @@ class ApiToolAgent(BaseAgent):
                     - API call confirmation (before executing)
                     - API results (after executing summarize api response in a human-readable format).
                     
-                    DO not respond confirming Api invocation"""),
+                    DO not respond confirming Api invocation.
+                    Do not ask for confirmation.
+                    """),
             ("human", "{query}")
         ])
 
@@ -117,6 +174,9 @@ class ApiToolAgent(BaseAgent):
                 for tool_call in response.tool_calls:
                     tool_name = tool_call["name"]
                     tool_args = tool_call["args"]
+                    
+                    # Add token from state to tool arguments if available
+                    tool_args["token"] = state["token"]
 
                     # Find and execute the tool
                     for tool in self.tools:
