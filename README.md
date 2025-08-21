@@ -20,20 +20,30 @@ GRANT ALL PRIVILEGES ON DATABASE insure_ai_db TO insure_user;
 
 **Backend (.env in backend/nest-backend/)**
 ```env
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_USERNAME=insure_user
-DATABASE_PASSWORD=your_password
-DATABASE_NAME=insure_ai_db
-JWT_SECRET=your_jwt_secret_key_here
 PORT=4000
+JWT_SECRET=mysecret
+JWT_TTL=60m
+AI_SERVICE_URL=http://localhost:8000
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=root
+DB_NAME=insure-db
+NODE_ENV=development
+
 ```
 
 **AI Service (.env in backend/ai-service/)**
 ```env
-OPENAI_API_KEY=your_openai_api_key_here
-DATABASE_URL=postgresql://insure_user:your_password@localhost:5432/insure_ai_db
 PORT=8000
+OPENAI_API_KEY=openai_api_key
+KNOWLEDGE_DB_URL=vecotr_db_url
+DB_URL=checkpoint_db_url
+MODEL_NAME=gpt-4o
+EXTERNAL_API_BASE_URL=http://localhost:4000
+
+
 ```
 
 **Frontend (.env in frontend/)**
