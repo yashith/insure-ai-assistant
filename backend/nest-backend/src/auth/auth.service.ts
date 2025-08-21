@@ -14,14 +14,16 @@ export class AuthService {
         private readonly userService: UserService,
         private readonly jwtService: JwtService,
     ) {}
-    async validateUser(username: string, password: string): Promise<User> {
+    async validateUser(id:number,username: string, role: string): Promise<User> {
         const user: User | undefined = await this.userService.findOneByUsername(username);
         if (!user) {
             throw new BadRequestException('User not found');
         }
-        const isMatch: boolean = bcrypt.compareSync(username+password, user.password);
+        const isMatch: boolean = user.id === id && user.username === username && user.role === role;
+        console.log(`Validating user: ${user.username}, ID: ${user.id}, Role: ${user.role}`);
+        console.log(`Expected ID: ${id}, Username: ${username}, Role: ${role}`);
         if (!isMatch) {
-            throw new BadRequestException('Password does not match');
+            throw new BadRequestException('Invalid token');
         }
         return user;
     }
@@ -34,7 +36,7 @@ export class AuthService {
             if(!isMatch){
                 throw new BadRequestException('Password does not match');
             }
-            const payload = { username: user.username, password: user.password, role: existingUser.role };
+            const payload = {userId:existingUser.id,username: existingUser.username, role: existingUser.role };
             return { access_token: this.jwtService.sign(payload) };
         }
         else{
