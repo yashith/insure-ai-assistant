@@ -13,6 +13,8 @@ import { AdminModule } from './admin/admin.module';
 import { User } from './user/dto/user.dto';
 import { ClaimModule } from './claim/claim.module';
 import {Claim} from "./claim/dto/calim.dto";
+import { PolicyModule } from './policy/policy.module';
+import { Policy } from './policy/dto/policy.dto';
 
 @Module({
   imports: [
@@ -26,7 +28,7 @@ import {Claim} from "./claim/dto/calim.dto";
         username: process.env.DB_USERNAME || 'postgres',
         password: process.env.DB_PASSWORD || 'root',
         database: process.env.DB_NAME || 'insure-db',
-        entities: [User,Claim],
+        entities: [User,Claim,Policy],
         synchronize: process.env.NODE_ENV !== 'production',
         logging: process.env.NODE_ENV === 'development',
       }),
@@ -35,6 +37,7 @@ import {Claim} from "./claim/dto/calim.dto";
       ChatModule,
       AdminModule,
       ClaimModule,
+      PolicyModule,
   ],
   controllers: [AppController, AuthController],
   providers: [AppService,AuthService],

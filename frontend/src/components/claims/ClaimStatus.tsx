@@ -7,7 +7,6 @@ const ClaimStatus: React.FC = () => {
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [refreshingClaim, setRefreshingClaim] = useState<number | null>(null);
 
   useEffect(() => {
     fetchClaims();

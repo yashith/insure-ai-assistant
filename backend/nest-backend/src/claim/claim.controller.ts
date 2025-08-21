@@ -41,15 +41,10 @@ export class ClaimController {
     @Post('create-claim')
     @UseGuards(JwtAuthGuard) // protect with auth
     @ApiOkResponse({ type: ClaimStatusResponseDto, description: 'Successfully retrieved user', isArray: false})
-    async createClaim(@Body() claim: ClaimSubmitRequest, @Request() req): Promise<ClaimStatusResponseDto | BadRequestException> {
+    async createClaim(@Body() claim: ClaimSubmitRequest, @Request() req): Promise<Claim | BadRequestException> {
         const userId = req.user.id; // Extract userId from JWT token
-        let claimResponse = await this.claimService.submitClaim(claim, userId);
+        return await this.claimService.submitClaim(claim, userId);
 
-        if (claimResponse === undefined) {
-            return new BadRequestException("Could not create a claim");
-        }
-        //Agent mistakes it as an existing claim if status returns as pending
-        return new ClaimStatusResponseDto("Created",claimResponse.id,claimResponse.updatedAt);
 
     }
 }

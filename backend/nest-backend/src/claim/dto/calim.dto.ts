@@ -2,6 +2,7 @@ import { IsString } from 'class-validator';
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from '../../user/dto/user.dto';
 import {ApiProperty} from "@nestjs/swagger";
+import {Policy} from "../../policy/dto/policy.dto";
 
 @Entity('claims')
 export class Claim{
@@ -12,6 +13,10 @@ export class Claim{
     @Column()
     @ApiProperty()
     userId: number;
+
+    @ManyToOne(() => Policy)
+    @JoinColumn({ name: 'policyId' })
+    policyId: number;
 
     @ManyToOne(() => User)
     @JoinColumn({ name: 'userId' })
