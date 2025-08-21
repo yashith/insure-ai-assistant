@@ -8,12 +8,15 @@ import {JwtAuthGuard} from "../common/guards/jwt-auth.guard";
 import {ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiOkResponse} from '@nestjs/swagger';
 import {ClaimStatusResponseDto} from "./dto/claim.status.response.dto";
 import {ClaimSubmitRequest} from "./dto/claim.submit.req";
+import {Roles} from "../common/decorators/role.decorator";
+import {Role} from "../common/constants/roles.const";
 
 @Controller('claim')
 export class ClaimController {
     constructor(private claimService: ClaimService) {}
     @Post('claim-status')
     @UseGuards(JwtAuthGuard) // protect with auth
+    @Roles(Role.USER,Role.ADMIN)
     @ApiOkResponse({ type: ClaimStatusResponseDto, description: 'Successfully retrieved user', isArray: false})
     async claimStatus(@Body() claim: ClaimByIdRequest, @Request() req): Promise<ClaimStatusResponseDto | BadRequestException> {
         const userId = req.user.id; // Extract userId from JWT token
@@ -28,6 +31,7 @@ export class ClaimController {
 
     @Get('claims')
     @UseGuards(JwtAuthGuard) // protect with auth
+    @Roles(Role.USER,Role.ADMIN)
     @ApiOkResponse({ type: Claim , description: 'Successfully retrieved user', isArray: true })
     async userClaims( @Request() req):Promise<Claim[]> {
         const userId = req.user.id; // Extract userId from JWT token

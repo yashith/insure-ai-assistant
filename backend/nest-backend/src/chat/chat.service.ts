@@ -15,11 +15,13 @@ export class ChatService {
     return this.messages;
   }
 
-  async sendMessage(message: string, user: User) {
+  async sendMessage(message: string, user: User,token: string): Promise<any> {
     try {
+      console.log(token)
       const response = await axios.post(this.aiServiceUrl, {
         userId: user.id.toString(),
         role: user.role,
+        token: token, // Pass the JWT token for authentication
         message:message,
       });
 

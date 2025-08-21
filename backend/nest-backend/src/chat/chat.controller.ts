@@ -18,8 +18,10 @@ export class ChatController {
   }*/
 
   @UseGuards(JwtAuthGuard) // protect with auth
+  @Roles(Role.USER,Role.ADMIN)
   @Post()
   async chat(@Body() chatDto: ChatDto, @Req() req) {
-    return this.chatService.sendMessage(chatDto.message, req.user);
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    return this.chatService.sendMessage(chatDto.message, req.user, token);
   }
 }
