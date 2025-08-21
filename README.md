@@ -6,7 +6,7 @@ A full-stack web application for intelligent insurance assistance with policy ma
 
 ### Prerequisites
 - Node.js (v18+)
-- Python (v3.9+)
+- Python (v3.11+)
 - PostgreSQL (v14+)
 
 ### Database Setup
@@ -97,6 +97,6 @@ npm start
 - **API Documentation** - Swagger/OpenAPI documentation
 
 ### 🔧 Tech Stack
-- **Frontend:** React 19, TypeScript, JWT Auth, Axios
-- **Backend:** NestJS, PostgreSQL, TypeORM, Swagger
-- **AI Service:** FastAPI, LangChain, OpenAI, pgvector
+- **Frontend:** React 19.1.1, TypeScript 4.9.5, JWT Auth, Axios 1.11.0
+- **Backend:** NestJS 11.0.1, PostgreSQL, TypeORM 11.0.0, Swagger 11.2.0
+- **AI Service:** FastAPI, Python 3.11+, LangChain 0.3.27, OpenAI 1.99.9, pgvector
