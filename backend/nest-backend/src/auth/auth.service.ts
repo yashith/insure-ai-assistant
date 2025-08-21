@@ -15,7 +15,7 @@ export class AuthService {
         private readonly jwtService: JwtService,
     ) {}
     async validateUser(username: string, password: string): Promise<User> {
-        const user: User | undefined = await this.userService.findOne(username);
+        const user: User | undefined = await this.userService.findOneByUsername(username);
         if (!user) {
             throw new BadRequestException('User not found');
         }
@@ -26,7 +26,7 @@ export class AuthService {
         return user;
     }
     async login(user:LoginRequestDto): Promise<AccessToken> {
-        const existingUser = await this.userService.findOne(user.username);
+        const existingUser = await this.userService.findOneByUsername(user.username);
         if (existingUser) {
             const inputPass = user.username+user.password;
             const isMatch: boolean = bcrypt.compareSync(inputPass, existingUser.password);
@@ -42,7 +42,7 @@ export class AuthService {
         }
     }
     async register(user: RegisterRequestDto):Promise<GenericResponse> {
-        const existingUser = await this.userService.findOne(user.username);
+        const existingUser = await this.userService.findOneByUsername(user.username);
         if (existingUser) {
             throw new BadRequestException('Username already exists');
         }

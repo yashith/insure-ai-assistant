@@ -1,54 +1,41 @@
 import {Injectable, OnModuleDestroy, OnModuleInit} from '@nestjs/common';
-import * as console from "console";
-import * as fs from "fs";
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, DataSource } from 'typeorm';
 import {Role} from "../common/constants/roles.const";
 import {User} from "./dto/user.dto";
 
 
 @Injectable()
-export class UserService implements OnModuleInit,OnModuleDestroy{
-    private users: User[] = [
-        {id: 1, username: 'john', password: 'changeme', role: 'user'},
-        {id: 2, username: 'maria', password: 'guess', role: 'user'},
-        {id: 3, username: 'admin', password: 'admin', role: 'admin'},
-    ]
-    //TODO only for testing user storage
-    //TODO replace loading users from file with database
-    private readonly filePath = 'users.json';
-    async findOne(username: string): Promise<User | undefined> {
-        this.loadUsers()
-        return this.users.find(user => user.username === username);
-    }
+export class UserService{
+    constructor(
+        private dataSource: DataSource
+    ) {}
 
+    async findOneByUsername(username: string): Promise<User | undefined> {
+        const userRepository = this.dataSource.getRepository(User);
+        const user = await userRepository.findOne({
+            where: { username }
+        });
+        return user ?? undefined;
+    }
     async create(newUser: { password: string; username: string }):Promise<User> {
-        const user:User={
-            id: this.users.length + 1,
+        const userRepository = this.dataSource.getRepository(User);
+        
+        const existingUser = await userRepository.findOne({
+            where: { username: newUser.username }
+        });
+        if (existingUser) {
+            throw new Error('Username already exists');
+        }
+
+        const user = userRepository.create({
             username: newUser.username,
             password: newUser.password,
-            role: Role.USER //TODO default check role
-        }
-        this.users.push(user)
-        this.saveUsers()
-        return user;
+            role: Role.USER
+        });
+
+        return await userRepository.save(user);
     }
 
 
-    async onModuleInit() {
-        this.loadUsers();
-    }
-
-    async onModuleDestroy() {
-        this.saveUsers();
-    }
-
-    private loadUsers() {
-        if (fs.existsSync(this.filePath)) {
-            const data = fs.readFileSync(this.filePath, 'utf-8');
-            this.users = JSON.parse(data);
-        }
-    }
-
-    private saveUsers() {
-        fs.writeFileSync(this.filePath, JSON.stringify(this.users, null, 2));
-    }
 }
