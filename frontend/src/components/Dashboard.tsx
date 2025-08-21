@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
+import Chat from './chat/Chat';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -18,8 +19,7 @@ const Dashboard: React.FC = () => {
       </div>
       
       <div className="dashboard-content">
-        <p>You are successfully logged in to the Insurance AI Assistant.</p>
-        <p>This is where your main application content will go.</p>
+        <Chat />
       </div>
     </div>
   );

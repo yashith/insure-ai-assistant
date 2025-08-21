@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { LoginRequest, RegisterRequest, LoginResponse, RegisterResponse } from '../types/auth';
+import { ChatResponse } from '../types/chat';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
 
@@ -39,6 +40,13 @@ export const authApi = {
 
   register: async (credentials: RegisterRequest): Promise<RegisterResponse> => {
     const response = await api.post('/auth/register', credentials);
+    return response.data;
+  },
+};
+
+export const chatApi = {
+  sendMessage: async (message: string): Promise<ChatResponse> => {
+    const response = await api.post('/chat', { message });
     return response.data;
   },
 };
