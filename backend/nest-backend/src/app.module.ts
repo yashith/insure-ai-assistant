@@ -11,6 +11,8 @@ import { AuthController } from './auth/auth.controller';
 import {LoggerMiddleware} from "./middlewear/middlewear.logger";
 import { AdminModule } from './admin/admin.module';
 import { User } from './user/dto/user.dto';
+import { ClaimModule } from './claim/claim.module';
+import {Claim} from "./claim/dto/calim.dto";
 
 @Module({
   imports: [
@@ -24,7 +26,7 @@ import { User } from './user/dto/user.dto';
         username: process.env.DB_USERNAME || 'postgres',
         password: process.env.DB_PASSWORD || 'root',
         database: process.env.DB_NAME || 'insure-db',
-        entities: [User],
+        entities: [User,Claim],
         synchronize: process.env.NODE_ENV !== 'production',
         logging: process.env.NODE_ENV === 'development',
       }),
@@ -32,6 +34,7 @@ import { User } from './user/dto/user.dto';
       AuthModule,
       ChatModule,
       AdminModule,
+      ClaimModule,
   ],
   controllers: [AppController, AuthController],
   providers: [AppService,AuthService],
