@@ -79,7 +79,9 @@ class ApiToolAgent(BaseAgent):
                     Respond with either:
                     - A request for more information (if needed)
                     - API call confirmation (before executing)
-                    - API results (after executing summarize api response in a human-readable format)"""),
+                    - API results (after executing summarize api response in a human-readable format).
+                    
+                    DO not respond confirming Api invocation"""),
             ("human", "{query}")
         ])
 

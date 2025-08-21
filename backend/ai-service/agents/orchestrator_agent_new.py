@@ -129,7 +129,8 @@ class OrchestratorAgentNew(BaseAgent):
             }
         )
 
-        graph_builder.add_edge("knowledge_retrieval", END)
+        graph_builder.add_edge("fallback", 'orchestrator')
+        graph_builder.add_edge("knowledge_retrieval", 'orchestrator')
         graph_builder.add_edge("api_interaction", 'orchestrator')
 
         # self.graph = graph_builder.compile(checkpointer=MemorySaver())
@@ -282,7 +283,7 @@ class OrchestratorAgentNew(BaseAgent):
 
             state["messages"].append(AIMessage(content=response.content))
             # state.messages.append(AIMessage(content=response.content))
-            # state.current_step = "general_response"
+            state["current_step"] = "general_response"
 
         except Exception as e:
             logger.error(f"Error in general query handling: {e}")
