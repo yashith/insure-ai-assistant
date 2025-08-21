@@ -31,13 +31,16 @@ app = FastAPI(lifespan=lifespan)
 class ChatRequest(BaseModel):
     userId: str
     role: str
+    token: str
+    sessionId: str
     message: str
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
     result = await agent_graph.process_message(
         message=req.message,
-        session_id="example_session"
+        token= req.token,
+        session_id=req.sessionId,
     )
     print(result)
     return {"message": result["messages"][-1].content}

@@ -291,11 +291,12 @@ class OrchestratorAgentNew(BaseAgent):
 
         return state
 
-    async def process_message(self, message, session_id):
+    async def process_message(self, message, session_id,token):
         config = {'configurable':{'thread_id':session_id}}
         return await self.graph.ainvoke({
             "messages": [HumanMessage(message)],
-            "user_id": "test_user",  # You should pass this as parameter
+            "user_id": "test_user",
+            "token": token,
             "session_id": session_id,
             "current_step": "start",
             "context": {},
