@@ -64,7 +64,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const decoded: any = jwtDecode(token);
       setUser({ username: decoded.username || decoded.sub });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Login failed';
+      let errorMessage = 'Login failed';
+      
+      if (error.response?.data?.message) {
+        // Handle nested message structure from backend
+        if (typeof error.response.data.message === 'object' && error.response.data.message.message) {
+          errorMessage = error.response.data.message.message;
+        } else if (typeof error.response.data.message === 'string') {
+          errorMessage = error.response.data.message;
+        }
+      }
+      
       setError(errorMessage);
       throw error;
     } finally {
@@ -79,7 +89,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       await authApi.register(credentials);
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Registration failed';
+      let errorMessage = 'Registration failed';
+      
+      if (error.response?.data?.message) {
+        // Handle nested message structure from backend
+        if (typeof error.response.data.message === 'object' && error.response.data.message.message) {
+          errorMessage = error.response.data.message.message;
+        } else if (typeof error.response.data.message === 'string') {
+          errorMessage = error.response.data.message;
+        }
+      }
+      
       setError(errorMessage);
       throw error;
     } finally {
