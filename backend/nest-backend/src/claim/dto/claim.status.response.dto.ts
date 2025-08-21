@@ -2,14 +2,14 @@ import {ApiProperty} from "@nestjs/swagger";
 
 export class ClaimStatusResponseDto {
     @ApiProperty()
-    id: number;
+    claimId: number;
     @ApiProperty()
     status: string;
     @ApiProperty()
     updatedAt: Date;
 
     constructor(status: string, id: number, updatedAt: Date) {
-        this.id = id ;
+        this.claimId = id ;
         this.status= status;
         this.updatedAt = updatedAt;
     }

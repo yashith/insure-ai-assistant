@@ -48,7 +48,8 @@ export class ClaimController {
         if (claimResponse === undefined) {
             return new BadRequestException("Could not create a claim");
         }
-        return new ClaimStatusResponseDto(claimResponse.status,claimResponse.id,claimResponse.updatedAt);
+        //Agent mistakes it as an existing claim if status returns as pending
+        return new ClaimStatusResponseDto("Created",claimResponse.id,claimResponse.updatedAt);
 
     }
 }
