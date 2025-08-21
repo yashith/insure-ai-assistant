@@ -2,6 +2,7 @@ import {BadRequestException, Injectable} from '@nestjs/common';
 import {JwtService} from "@nestjs/jwt";
 import {UserService} from "../user/user.service";
 import * as bcrypt from 'bcrypt';
+import { v4 as uuidv4 } from 'uuid';
 import {User} from "../user/dto/user.dto";
 import {LoginRequestDto} from "./dto/login.req.dto";
 import {RegisterRequestDto} from "./dto/register.req.dto";
@@ -14,19 +15,19 @@ export class AuthService {
         private readonly userService: UserService,
         private readonly jwtService: JwtService,
     ) {}
-    async validateUser(username: string, password: string): Promise<User> {
-        const user: User | undefined = await this.userService.findOne(username);
+    async validateUser(id:number,username: string, role: string): Promise<User> {
+        const user: User | undefined = await this.userService.findOneByUsername(username);
         if (!user) {
             throw new BadRequestException('User not found');
         }
-        const isMatch: boolean = bcrypt.compareSync(username+password, user.password);
+        const isMatch: boolean = user.id === id && user.username === username && user.role === role;
         if (!isMatch) {
-            throw new BadRequestException('Password does not match');
+            throw new BadRequestException('Invalid token');
         }
         return user;
     }
     async login(user:LoginRequestDto): Promise<AccessToken> {
-        const existingUser = await this.userService.findOne(user.username);
+        const existingUser = await this.userService.findOneByUsername(user.username);
         if (existingUser) {
             const inputPass = user.username+user.password;
             const isMatch: boolean = bcrypt.compareSync(inputPass, existingUser.password);
@@ -34,7 +35,13 @@ export class AuthService {
             if(!isMatch){
                 throw new BadRequestException('Password does not match');
             }
-            const payload = { username: user.username, password: user.password, role: existingUser.role };
+            const sessionId = uuidv4();
+            const payload = {
+                userId: existingUser.id,
+                username: existingUser.username, 
+                role: existingUser.role,
+                sessionId: sessionId
+            };
             return { access_token: this.jwtService.sign(payload) };
         }
         else{
@@ -42,7 +49,7 @@ export class AuthService {
         }
     }
     async register(user: RegisterRequestDto):Promise<GenericResponse> {
-        const existingUser = await this.userService.findOne(user.username);
+        const existingUser = await this.userService.findOneByUsername(user.username);
         if (existingUser) {
             throw new BadRequestException('Username already exists');
         }

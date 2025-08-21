@@ -4,12 +4,17 @@ import {LoginRequestDto} from "./dto/login.req.dto";
 import {RegisterRequestDto} from "./dto/register.req.dto";
 import {AccessToken} from "./dto/auth.token.dto";
 import {GenericResponse} from "./dto/generic.res.dto";
+import {ApiOkResponse} from "@nestjs/swagger";
+import {ClaimStatusResponseDto} from "../claim/dto/claim.status.response.dto";
+import {Roles} from "../common/decorators/role.decorator";
+import {Role} from "../common/constants/roles.const";
 
 @Controller('auth')
 export class AuthController {
     constructor(private authService: AuthService) {}
     // @UseGuards(AuthGuard('local'))
     @Post('login')
+    @ApiOkResponse({ type:AccessToken, description: 'Successfully retrieved user', isArray: false})
     async login(@Body() req:LoginRequestDto): Promise<AccessToken| BadRequestException> {
         return this.authService.login(req);
     }

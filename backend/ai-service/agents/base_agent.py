@@ -16,6 +16,7 @@ class AgentState(TypedDict):
     messages: Annotated[List[AnyMessage], add_messages]
     user_id: str
     session_id: str
+    token: str = ""
     current_step: str = ""
     context: Dict[str, Any] = {}
     needs_confirmation: bool = False

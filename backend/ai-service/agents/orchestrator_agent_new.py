@@ -129,7 +129,8 @@ class OrchestratorAgentNew(BaseAgent):
             }
         )
 
-        graph_builder.add_edge("knowledge_retrieval", END)
+        graph_builder.add_edge("fallback", 'orchestrator')
+        graph_builder.add_edge("knowledge_retrieval", 'orchestrator')
         graph_builder.add_edge("api_interaction", 'orchestrator')
 
         # self.graph = graph_builder.compile(checkpointer=MemorySaver())
@@ -262,10 +263,13 @@ class OrchestratorAgentNew(BaseAgent):
             
             # Map to available routes
             if routing_decision.agent == "knowledge":
+                logger.info("Routing to Knowledge agent")
                 return "knowledge"
             elif routing_decision.agent == "api":
+                logger.info("Routing to Api agent")
                 return "api"
             else:
+                logger.info("Routing Fallback")
                 return "fallback"
         
         except Exception as e:
@@ -282,7 +286,7 @@ class OrchestratorAgentNew(BaseAgent):
 
             state["messages"].append(AIMessage(content=response.content))
             # state.messages.append(AIMessage(content=response.content))
-            # state.current_step = "general_response"
+            state["current_step"] = "general_response"
 
         except Exception as e:
             logger.error(f"Error in general query handling: {e}")
@@ -290,11 +294,12 @@ class OrchestratorAgentNew(BaseAgent):
 
         return state
 
-    async def process_message(self, message, session_id):
+    async def process_message(self, message, session_id,token):
         config = {'configurable':{'thread_id':session_id}}
         return await self.graph.ainvoke({
             "messages": [HumanMessage(message)],
-            "user_id": "test_user",  # You should pass this as parameter
+            "user_id": "test_user",
+            "token": token,
             "session_id": session_id,
             "current_step": "start",
             "context": {},
