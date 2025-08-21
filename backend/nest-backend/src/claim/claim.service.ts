@@ -1,6 +1,5 @@
 import {BadRequestException, Injectable} from '@nestjs/common';
 import {DataSource, Repository} from "typeorm";
-import {User} from "../user/dto/user.dto";
 import {Claim} from "./dto/calim.dto";
 import {ClaimSubmitRequest} from "./dto/claim.submit.req";
 import {Policy} from "../policy/dto/policy.dto";

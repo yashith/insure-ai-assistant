@@ -7,7 +7,7 @@ import { Policy } from './dto/policy.dto';
 import { PolicyService } from './policy.service';
 
 @ApiTags('Policy')
-@Controller('api/policy')
+@Controller('policy')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class PolicyController {

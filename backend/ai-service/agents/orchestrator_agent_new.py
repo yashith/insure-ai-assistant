@@ -60,10 +60,11 @@ class OrchestratorAgentNew(BaseAgent):
 
             Agent Capabilities:
             KNOWLEDGE Agent:
-            - Fetch about policy details 
+            - Fetch about general policy details 
             - Explains benefits, deductibles, and terms
 
             API Agent:
+            - Looks up what is user's policy
             - Looks up claim status using claim IDs
             - Submits new insurance claims
             - Processes customer-specific requests
