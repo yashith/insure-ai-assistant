@@ -22,6 +22,7 @@ export class ChatController {
   @Post()
   async chat(@Body() chatDto: ChatDto, @Req() req) {
     const token = req.headers.authorization?.replace('Bearer ', '');
-    return this.chatService.sendMessage(chatDto.message, req.user, token);
+    const sessionId = req.user.sessionId;
+    return this.chatService.sendMessage(chatDto.message, req.user, token, sessionId);
   }
 }

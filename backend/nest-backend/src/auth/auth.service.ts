@@ -2,6 +2,7 @@ import {BadRequestException, Injectable} from '@nestjs/common';
 import {JwtService} from "@nestjs/jwt";
 import {UserService} from "../user/user.service";
 import * as bcrypt from 'bcrypt';
+import { v4 as uuidv4 } from 'uuid';
 import {User} from "../user/dto/user.dto";
 import {LoginRequestDto} from "./dto/login.req.dto";
 import {RegisterRequestDto} from "./dto/register.req.dto";
@@ -20,8 +21,6 @@ export class AuthService {
             throw new BadRequestException('User not found');
         }
         const isMatch: boolean = user.id === id && user.username === username && user.role === role;
-        console.log(`Validating user: ${user.username}, ID: ${user.id}, Role: ${user.role}`);
-        console.log(`Expected ID: ${id}, Username: ${username}, Role: ${role}`);
         if (!isMatch) {
             throw new BadRequestException('Invalid token');
         }
@@ -36,7 +35,13 @@ export class AuthService {
             if(!isMatch){
                 throw new BadRequestException('Password does not match');
             }
-            const payload = {userId:existingUser.id,username: existingUser.username, role: existingUser.role };
+            const sessionId = uuidv4();
+            const payload = {
+                userId: existingUser.id,
+                username: existingUser.username, 
+                role: existingUser.role,
+                sessionId: sessionId
+            };
             return { access_token: this.jwtService.sign(payload) };
         }
         else{
