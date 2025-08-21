@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Chat from './chat/Chat';
+import ClaimStatus from './claims/ClaimStatus';
 
 const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
+  const [activeTab, setActiveTab] = useState<'chat' | 'claims'>('chat');
 
   const handleLogout = () => {
     logout();
@@ -18,8 +20,24 @@ const Dashboard: React.FC = () => {
         </button>
       </div>
       
+      <div className="dashboard-nav">
+        <button 
+          className={`nav-button ${activeTab === 'chat' ? 'active' : ''}`}
+          onClick={() => setActiveTab('chat')}
+        >
+          AI Assistant
+        </button>
+        <button 
+          className={`nav-button ${activeTab === 'claims' ? 'active' : ''}`}
+          onClick={() => setActiveTab('claims')}
+        >
+          My Claims
+        </button>
+      </div>
+      
       <div className="dashboard-content">
-        <Chat />
+        {activeTab === 'chat' && <Chat />}
+        {activeTab === 'claims' && <ClaimStatus />}
       </div>
     </div>
   );
