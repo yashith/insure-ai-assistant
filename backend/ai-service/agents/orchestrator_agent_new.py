@@ -263,10 +263,13 @@ class OrchestratorAgentNew(BaseAgent):
             
             # Map to available routes
             if routing_decision.agent == "knowledge":
+                logger.info("Routing to Knowledge agent")
                 return "knowledge"
             elif routing_decision.agent == "api":
+                logger.info("Routing to Api agent")
                 return "api"
             else:
+                logger.info("Routing Fallback")
                 return "fallback"
         
         except Exception as e:

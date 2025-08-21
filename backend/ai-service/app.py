@@ -3,6 +3,9 @@ from os import getenv
 import os
 import io
 import uuid
+import asyncio
+import sys
+import logging
 
 import uvicorn
 from dotenv import load_dotenv
@@ -14,8 +17,21 @@ import pypdf
 from agents.orchestrator_agent_new import OrchestratorAgentNew
 from util.pdf_processor import PdfDocumentEmbedder
 
-# build LangGraph workflow
+# Fix asyncio event loop policy for Windows
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+    ]
+)
+
 agent_graph = OrchestratorAgentNew(
     database_url=getenv("DB_URL"),
     api_base_url=getenv("EXTERNAL_API_BASE_URL")
@@ -23,9 +39,9 @@ agent_graph = OrchestratorAgentNew(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    #initialize agent since async postgres connection is using
     await agent_graph.initialize()
     yield
-    # Clean up the ML models and release the resources
 
 app = FastAPI(lifespan=lifespan)
 class ChatRequest(BaseModel):
@@ -42,16 +58,7 @@ async def chat(req: ChatRequest):
         token= req.token,
         session_id=req.sessionId,
     )
-    print(result)
     return {"message": result["messages"][-1].content}
-    # session_id = result["session_id"]
-    # print(f"AI: {result['response']}")
-    #
-    # if result["needs_confirmation"]:
-    #     print("(Waiting for confirmation...)")
-    #
-    # print(f"Metadata: {result['metadata']}")
-    # return {"reply": result["response"]}
 
 @app.post("/upload-document")
 async def upload_document(file: UploadFile):
@@ -96,4 +103,5 @@ async def upload_document(file: UploadFile):
         raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e)}")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print(f"port {int(getenv("PORT"))}")
+    uvicorn.run(app, host="0.0.0.0", port=int(getenv("PORT")))
