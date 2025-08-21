@@ -38,7 +38,7 @@ def get_claim_details(claim_id: str, token: str = None) -> dict:
             headers['Authorization'] = f"Bearer {token}"
 
         payload = {
-            "claim_id": claim_id
+            "claim_id": int(claim_id)
         }
 
         # Prepare headers
@@ -48,7 +48,6 @@ def get_claim_details(claim_id: str, token: str = None) -> dict:
             api,
             json=payload,
             headers=headers,
-            timeout=10
         )
         
         if response.status_code == 200:
@@ -60,6 +59,35 @@ def get_claim_details(claim_id: str, token: str = None) -> dict:
 
     except Exception as e:
         return {"error": f"Could not retrieve required data: {str(e)}"}
+
+
+@tool
+def get_user_policy_details(token: str = None) -> dict:
+    """Get user's policy details from given
+    :return: Policy details
+    """
+    try:
+        # Make API call to get claim details
+        api = getenv("EXTERNAL_API_BASE_URL") + "/api/policy/user"
+        headers = {"Content-Type": "application/json"}
+
+        if token:
+            headers['Authorization'] = f"Bearer {token}"
+
+        # Prepare headers
+        if token:
+            headers['Authorization'] = f"Bearer {token}"
+        response = requests.get(
+            api,
+            headers=headers,
+        )
+
+        return response.json()
+
+    except Exception as e:
+        return {"error": f"Could not retrieve required data: {str(e)}"}
+
+
 @tool
 def submit_new_claim(policy_id: str, damage_description: str, vehicle: str, token: str = None) -> dict:
     """This Api is used to submit a new claim,
@@ -87,7 +115,7 @@ def submit_new_claim(policy_id: str, damage_description: str, vehicle: str, toke
         api = getenv("EXTERNAL_API_BASE_URL")+"/api/claim/create-claim"
 
         payload = {
-            "policy_id": policy_id,
+            "policyNumber": int(policy_id),
             "damage": damage_description.strip(),
             "vehicle": vehicle.strip()
         }
@@ -103,19 +131,15 @@ def submit_new_claim(policy_id: str, damage_description: str, vehicle: str, toke
             json=payload,
             headers=headers,
         )
-        
-        if response.status_code == 201 or response.status_code == 200:
-            return response.json()
-        else:
-            return {"error": f"API error: {response.status_code} - {response.text}"}
-
+        logger.info("Submitted new claim request %s", extra={"request": response.json()})
+        return response.json()
     except Exception as e:
         return {"error": f"Unexpected error: {str(e)}"}
 
 class ApiToolAgent(BaseAgent):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.tools = [get_claim_details,submit_new_claim]
+        self.tools = [get_claim_details,submit_new_claim,get_user_policy_details]
         self.llm = self.llm.bind_tools(self.tools)
 
         self.api_prompt = ChatPromptTemplate.from_messages([

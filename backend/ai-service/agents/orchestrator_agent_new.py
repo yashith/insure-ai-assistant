@@ -60,10 +60,11 @@ class OrchestratorAgentNew(BaseAgent):
 
             Agent Capabilities:
             KNOWLEDGE Agent:
-            - Fetch about policy details 
+            - Fetch about general policy details 
             - Explains benefits, deductibles, and terms
 
             API Agent:
+            - Looks up what is user's policy
             - Looks up claim status using claim IDs
             - Submits new insurance claims
             - Processes customer-specific requests
@@ -84,12 +85,14 @@ class OrchestratorAgentNew(BaseAgent):
             ("system", """You are a helpful insurance customer service assistant.
             The user's query couldn't be handled by specialized agents.
             Provide a helpful, conversational response.
+            If context have required API response for the user query, present that
+            data meaningful way without loosing any details.
 
             If appropriate, guide them toward specific actions like:
             - Asking about their insurance policy
             - Checking claim status
             - Submitting a new claim
-
+            
             User message: {message}
             Context: {context}"""),
             ("human", "{message}")

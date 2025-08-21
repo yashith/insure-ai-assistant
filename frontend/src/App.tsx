@@ -1,4 +1,5 @@
 import React from 'react';
+import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Auth from './components/auth/Auth';
 import Dashboard from './components/Dashboard';
@@ -16,9 +17,11 @@ const AppContent: React.FC = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </Router>
   );
 }
 

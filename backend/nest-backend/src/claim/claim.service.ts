@@ -1,40 +1,50 @@
-import { Injectable } from '@nestjs/common';
-import {DataSource} from "typeorm";
-import {User} from "../user/dto/user.dto";
+import {BadRequestException, Injectable} from '@nestjs/common';
+import {DataSource, Repository} from "typeorm";
 import {Claim} from "./dto/calim.dto";
 import {ClaimSubmitRequest} from "./dto/claim.submit.req";
+import {Policy} from "../policy/dto/policy.dto";
+import {InjectRepository} from "@nestjs/typeorm";
 
 @Injectable()
 export class ClaimService {
     constructor(
-        private dataSource: DataSource
+        @InjectRepository(Policy)
+        private readonly policyRepository: Repository<Policy>,
+        @InjectRepository(Claim)
+        private readonly claimRepository: Repository<Claim>
     ) {}
     async findOneById(id: number, userId: number): Promise<Claim| undefined> {
-        const claimRepository = this.dataSource.getRepository(Claim);
-        const claim = await claimRepository.findOne({
+        const claim = await this.claimRepository.findOne({
             where: {id, userId}
         });
         return claim ?? undefined;
     }
 
     async findUserClaims(userId: number): Promise<Claim[]> {
-        const claimRepository = this.dataSource.getRepository(Claim);
-        const claims = await claimRepository.find({
+        const claims = await this.claimRepository.find({
             where: {userId}
         });
         return claims ?? [];
     }
 
-    async submitClaim(claim: ClaimSubmitRequest, userId: number): Promise<Claim > {
-        const claimRepository = this.dataSource.getRepository(Claim);
-        const newClaim = claimRepository.create({
+    async submitClaim(claim: ClaimSubmitRequest, userId: number): Promise<Claim|BadRequestException> {
+
+        const policy  = await this.policyRepository.findOne({
+            where: { userId: userId , id: claim.policyNumber},
+        })
+        if (!policy) {
+            throw new BadRequestException("Policy not found for the user from the policy number provided");
+        }
+        const newClaim = this.claimRepository.create({
             userId,
             status: 'Pending',
             vehicle: claim.vehicle,
             damage: claim.damage
         });
-
-        return  await claimRepository.save(newClaim);
+        let createdClaim= await this.claimRepository.save(newClaim);
+        //Agent mistakes it as an existing claim if status returns as pending
+        createdClaim.status = 'created';
+        return  createdClaim
     }
 }
 

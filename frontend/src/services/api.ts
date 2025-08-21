@@ -1,8 +1,10 @@
 import axios from 'axios';
 import { LoginRequest, RegisterRequest, LoginResponse, RegisterResponse } from '../types/auth';
 import { ChatResponse } from '../types/chat';
+import { Claim, ClaimStatusResponse, CreateClaimRequest } from '../types/claim';
+import { Policy } from '../types/policy';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -47,6 +49,25 @@ export const authApi = {
 export const chatApi = {
   sendMessage: async (message: string): Promise<ChatResponse> => {
     const response = await api.post('/chat', { message });
+    return response.data;
+  },
+};
+
+export const claimApi = {
+  getAllClaims: async (): Promise<Claim[]> => {
+    const response = await api.get('/claim/claims');
+    return response.data;
+  },
+
+  getClaimStatus: async (claimId: number): Promise<ClaimStatusResponse> => {
+    const response = await api.post('/claim/claim-status', { claim_id: claimId });
+    return response.data;
+  },
+};
+
+export const policyApi = {
+  getUserPolicy: async (): Promise<Policy> => {
+    const response = await api.get('/policy/user');
     return response.data;
   },
 };

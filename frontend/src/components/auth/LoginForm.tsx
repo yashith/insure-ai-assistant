@@ -72,7 +72,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                 setUsername(e.target.value);
                 handleInputChange();
               }}
-              className={validationErrors.username ? 'error' : ''}
+              className={`${validationErrors.username ? 'error' : ''} ${error && error.toLowerCase().includes('user') ? 'error' : ''}`}
               placeholder="Enter your username"
               disabled={isLoading}
               autoComplete="username"
@@ -92,7 +92,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                 setPassword(e.target.value);
                 handleInputChange();
               }}
-              className={validationErrors.password ? 'error' : ''}
+              className={`${validationErrors.password ? 'error' : ''} ${error && error.toLowerCase().includes('password') ? 'error' : ''}`}
               placeholder="Enter your password"
               disabled={isLoading}
               autoComplete="current-password"
@@ -102,7 +102,21 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
             )}
           </div>
 
-          {error && <div className="auth-error">{error}</div>}
+          {error && (
+            <div className="auth-error">
+              {error}
+              {error.toLowerCase().includes('password') && (
+                <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.8 }}>
+                  Please check your password and try again
+                </div>
+              )}
+              {error.toLowerCase().includes('user') && (
+                <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.8 }}>
+                  Please check your username or create a new account
+                </div>
+              )}
+            </div>
+          )}
 
           <button
             type="submit"
