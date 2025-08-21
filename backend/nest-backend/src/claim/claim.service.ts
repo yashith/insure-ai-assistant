@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {DataSource} from "typeorm";
 import {User} from "../user/dto/user.dto";
 import {Claim} from "./dto/calim.dto";
+import {ClaimSubmitRequest} from "./dto/claim.submit.req";
 
 @Injectable()
 export class ClaimService {
@@ -22,6 +23,18 @@ export class ClaimService {
             where: {userId}
         });
         return claims ?? [];
+    }
+
+    async submitClaim(claim: ClaimSubmitRequest, userId: number): Promise<Claim > {
+        const claimRepository = this.dataSource.getRepository(Claim);
+        const newClaim = claimRepository.create({
+            userId,
+            status: 'Pending',
+            vehicle: claim.vehicle,
+            damage: claim.damage
+        });
+
+        return  await claimRepository.save(newClaim);
     }
 }
 

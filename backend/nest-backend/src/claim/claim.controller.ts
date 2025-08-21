@@ -7,6 +7,7 @@ import {Claim} from "./dto/calim.dto";
 import {JwtAuthGuard} from "../common/guards/jwt-auth.guard";
 import {ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiOkResponse} from '@nestjs/swagger';
 import {ClaimStatusResponseDto} from "./dto/claim.status.response.dto";
+import {ClaimSubmitRequest} from "./dto/claim.submit.req";
 
 @Controller('claim')
 export class ClaimController {
@@ -22,11 +23,6 @@ export class ClaimController {
             return new BadRequestException("Claim not found");
         }
         return new ClaimStatusResponseDto(claimResponse.status,claimResponse.id,claimResponse.updatedAt);
-        // return {
-        //     "id": claimResponse.id,
-        //     "status": claimResponse.status,
-        //     "updatedAt": claimResponse.updatedAt,
-        // }
 
     }
 
@@ -36,5 +32,19 @@ export class ClaimController {
     async userClaims( @Request() req):Promise<Claim[]> {
         const userId = req.user.id; // Extract userId from JWT token
         return await this.claimService.findUserClaims(userId);
+    }
+
+    @Post('create-claim')
+    @UseGuards(JwtAuthGuard) // protect with auth
+    @ApiOkResponse({ type: ClaimStatusResponseDto, description: 'Successfully retrieved user', isArray: false})
+    async createClaim(@Body() claim: ClaimSubmitRequest, @Request() req): Promise<ClaimStatusResponseDto | BadRequestException> {
+        const userId = req.user.id; // Extract userId from JWT token
+        let claimResponse = await this.claimService.submitClaim(claim, userId);
+
+        if (claimResponse === undefined) {
+            return new BadRequestException("Could not create a claim");
+        }
+        return new ClaimStatusResponseDto(claimResponse.status,claimResponse.id,claimResponse.updatedAt);
+
     }
 }
