@@ -8,7 +8,7 @@ import requests
 from requests.exceptions import RequestException, Timeout, ConnectionError
 
 from langchain.agents import Agent
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import tool
 
@@ -193,28 +193,39 @@ class ApiToolAgent(BaseAgent):
             response = await self.llm.ainvoke(formatted_messages)
 
             # Handle tool calls if any
-            if hasattr(response, 'tool_calls') and response.tool_calls:
+            if hasattr(response, 'tool_calls') and response.tool_calls or state.get("pending_action",False):
                 # Execute tool calls
-                for tool_call in response.tool_calls:
-                    tool_name = tool_call["name"]
-                    tool_args = tool_call["args"]
-                    
-                    # Add token from state to tool arguments if available
-                    tool_args["token"] = state["token"]
+                tool_calls = response.tool_calls or state.get("pending_action").get("api")
+                if tool_calls[0].get("confirmed") is None:
+                    state["current_step"] = "confirmation_needed"
+                    state["pending_action"] = {"api": response.tool_calls}
+                    state["messages"].append(AIMessage("Please confirm your entered details yes/no"))
 
-                    # Find and execute the tool
-                    for tool in self.tools:
-                        if tool.name == tool_name:
-                            try:
-                                tool_result = tool.invoke(tool_args)
-                                # Update response with tool result
-                                state["context"][tool_name] = tool_result
-                                # response.content += f"\n\nBased on the claim lookup: {tool_result}"
-                            except Exception as e:
-                                logger.error(f"Tool execution error: {e}")
-                                response.content += f"\n\nError retrieving claim details: {str(e)}"
+                elif tool_calls[0].get("confirmed"):
+                    for tool_call in tool_calls:
+                        tool_name = tool_call["name"]
+                        tool_args = tool_call["args"]
 
-                state["current_step"] = "api_completed"
+                        # Add token from state to tool arguments if available
+                        tool_args["token"] = state["token"]
+
+                        # Find and execute the tool
+                        for tool in self.tools:
+                            if tool.name == tool_name:
+                                try:
+                                    tool_result = tool.invoke(tool_args)
+                                    # Update response with tool result
+                                    state["context"][tool_name] = tool_result
+                                    # response.content += f"\n\nBased on the claim lookup: {tool_result}"
+                                    state["current_step"] = "api_completed"
+                                except Exception as e:
+                                    logger.error(f"Tool execution error: {e}")
+                                    response.content += f"\n\nError retrieving claim details: {str(e)}"
+                    state["pending_action"] = {}
+                else:
+                    state["pending_action"] = {}
+                    state["current_step"] = "api_completed"
+                    state["messages"].append(AIMessage("Thank you for the confirmation,Your request has discarded successfully"))
             else:
             # Add response to messages
                 state["messages"].append(response)

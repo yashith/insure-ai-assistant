@@ -19,7 +19,7 @@ class AgentState(TypedDict):
     token: str = ""
     current_step: str = ""
     context: Dict[str, Any] = {}
-    needs_confirmation: bool = False
+    confirmation_provided: bool = False
     pending_action: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
 

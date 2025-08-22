@@ -229,13 +229,25 @@ class OrchestratorAgentNew(BaseAgent):
 
 
             # call fallback with api agent / knowledge agent
-            if state["current_step"] in ["api_completed", "knowledge_retrieved"]:
+            if state["current_step"] in ["api_completed", "knowledge_retrieved","confirmation_needed"]:
+                state["current_step"] ="complete"
                 return "fallback"
             # Check if conversation is complete
             if state["current_step"] in ["complete", "general_response","api_processing"]:
+                state["current_step"] ="complete"
                 return "end"
-            
-            # Get the latest user message
+            if state.get("pending_action",False):
+                #Assuiming only one tool call at once
+                if str(state["messages"][-1].content).strip().lower() in ["no", "n"]:
+                    #User declined the reject api call
+                    state.get("pending_action").get("api")[0]["confirmed"] = False
+                else:
+                    #User accept the reject api call
+                    state.get("pending_action").get("api")[0]["confirmed"] = str(state["messages"][-1].content).strip().lower() in ["yes", "y"]
+
+                return "api"
+
+               # Get the latest user message
             user_message = None
             if state["messages"]:
                 for msg in reversed(state["messages"]):
@@ -306,7 +318,5 @@ class OrchestratorAgentNew(BaseAgent):
             "session_id": session_id,
             "current_step": "start",
             "context": {},
-            "needs_confirmation": False,
-            "pending_action": None,
             "error": None
         }, config=config)
